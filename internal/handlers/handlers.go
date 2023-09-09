@@ -1,43 +1,49 @@
 package handlers
 
 import (
-	"fmt"
 	"io"
 	"net/http"
-)
 
-var urlMap = make(map[string]string)
+	"github.com/11Petrov/urlshortener/internal/storage"
+)
 
 func HandleRequest(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		shortenURL(w, r)
+		ShortenURL(w, r)
 	case http.MethodGet:
-		redirectURL(w, r)
+		RedirectURL(w, r)
 	default:
 		http.Error(w, "Invalid request method", http.StatusBadRequest)
 	}
 }
 
-func shortenURL(w http.ResponseWriter, r *http.Request) {
-	hostURL := "http://localhost:8080/"
+func ShortenURL(rw http.ResponseWriter, r *http.Request) {
+	if r.ContentLength <= 0 {
+		http.Error(rw, "Request body is missing", http.StatusBadRequest)
+		return
+	}
+
+	defer r.Body.Close()
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		fmt.Println(err)
+		http.Error(rw, "Error reading request", http.StatusBadRequest)
+		return
 	}
-	defer r.Body.Close()
-	originalURL := string(body)
-	shortenedURL := generateShortURL(originalURL)
-	urlMap[shortenedURL] = originalURL
 
-	w.WriteHeader(http.StatusCreated)
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(hostURL + shortenedURL))
+	originalURL := string(body)
+	shortURL := GenerateShortURL(originalURL)
+	storage.UrlMap[shortURL] = originalURL
+
+	rw.WriteHeader(http.StatusCreated)
+	rw.Header().Set("Content-Type", "text/plain")
+	rw.Write([]byte(storage.HostURL + shortURL))
 }
 
-func redirectURL(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Path[1:]
-	if url, ok := urlMap[id]; ok {
+func RedirectURL(w http.ResponseWriter, r *http.Request) {
+	shortURL := r.URL.Path[1:]
+	if url, ok := storage.UrlMap[shortURL]; ok {
 		w.Header().Set("Location", url)
 		w.WriteHeader(http.StatusTemporaryRedirect)
 	} else {
@@ -45,6 +51,7 @@ func redirectURL(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func generateShortURL(url string) string {
+func GenerateShortURL(url string) string {
+	// Generating short URLs
 	return "EwHXdJfB"
 }
