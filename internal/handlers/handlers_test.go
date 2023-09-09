@@ -66,8 +66,8 @@ func TestShortenURL(t *testing.T) {
 
 func TestRedirectURL(t *testing.T) {
 
-	storage.UrlMap = make(map[string]string)
-	storage.UrlMap["EwHXdJfB"] = "https://practicum.yandex.ru/"
+	storage.URLMap = make(map[string]string)
+	storage.URLMap["EwHXdJfB"] = "https://practicum.yandex.ru/"
 
 	type args struct {
 		w *httptest.ResponseRecorder
@@ -104,6 +104,8 @@ func TestRedirectURL(t *testing.T) {
 
 			result := tt.args.w.Result()
 			assert.Equal(t, tt.expectedStatus, result.StatusCode)
+
+			defer result.Body.Close()
 
 			if tt.expectedHeader != "" {
 				header := result.Header.Get("Location")
