@@ -1,23 +1,18 @@
 package handlers
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"io"
+	"log"
 	"net/http"
+	"regexp"
 
 	"github.com/11Petrov/urlshortener/internal/storage"
+	"github.com/go-chi/chi"
 )
 
-func HandleRequest(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		ShortenURL(w, r)
-	case http.MethodGet:
-		RedirectURL(w, r)
-	default:
-		http.Error(w, "Invalid request method", http.StatusBadRequest)
-	}
-}
-
+// ShortenURL обрабатывает запросы на сокращение URL.
 func ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	if r.ContentLength <= 0 {
 		http.Error(rw, "Request body is missing", http.StatusBadRequest)
@@ -34,6 +29,7 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request) {
 
 	originalURL := string(body)
 	shortURL := GenerateShortURL(originalURL)
+	log.Println(shortURL)
 	storage.URLMap[shortURL] = originalURL
 
 	rw.WriteHeader(http.StatusCreated)
@@ -41,8 +37,9 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	rw.Write([]byte(storage.HostURL + shortURL))
 }
 
+// RedirectURL обрабатывает запросы на перенаправление по сокращенному URL.
 func RedirectURL(w http.ResponseWriter, r *http.Request) {
-	shortURL := r.URL.Path[1:]
+	shortURL := chi.URLParam(r, "id")
 	if url, ok := storage.URLMap[shortURL]; ok {
 		w.Header().Set("Location", url)
 		w.WriteHeader(http.StatusTemporaryRedirect)
@@ -51,7 +48,11 @@ func RedirectURL(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GenerateShortURL генерирует сокращенный URL на основе хэша.
 func GenerateShortURL(url string) string {
-	// Generating short URLs
-	return "EwHXdJfB"
+	hash := sha256.Sum256([]byte(url))
+	shortURL := base64.URLEncoding.EncodeToString(hash[:])
+	regExp := regexp.MustCompile("[^a-zA-Z0-9]+")
+	shortURL = regExp.ReplaceAllString(shortURL, "")
+	return shortURL[:8]
 }

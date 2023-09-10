@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/11Petrov/urlshortener/internal/storage"
+	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -65,53 +66,45 @@ func TestShortenURL(t *testing.T) {
 }
 
 func TestRedirectURL(t *testing.T) {
-
 	storage.URLMap = make(map[string]string)
-	storage.URLMap["EwHXdJfB"] = "https://practicum.yandex.ru/"
 
-	type args struct {
-		w *httptest.ResponseRecorder
-		r *http.Request
-	}
+	r := chi.NewRouter()
+	r.HandleFunc("/{id}", RedirectURL)
+
+	testURL := "https://practicum.yandex.ru/"
+	shortURL := GenerateShortURL(testURL)
+	storage.URLMap[shortURL] = testURL
+
 	tests := []struct {
-		name           string
-		args           args
-		expectedStatus int
-		expectedHeader string
+		name             string
+		URL              string
+		router           http.Handler
+		expectedStatus   int
+		expectedLocation string
 	}{
 		{
-			name: "ShortURL is in UrlMap",
-			args: args{
-				w: httptest.NewRecorder(),
-				r: httptest.NewRequest("GET", "/EwHXdJfB", nil),
-			},
-			expectedStatus: http.StatusTemporaryRedirect,
-			expectedHeader: "https://practicum.yandex.ru/",
+			name:             "ShortURL is in UrlMap",
+			router:           r,
+			URL:              shortURL,
+			expectedStatus:   http.StatusTemporaryRedirect,
+			expectedLocation: testURL,
 		},
 		{
-			name: "ShortURL is not in UrlMap",
-			args: args{
-				w: httptest.NewRecorder(),
-				r: httptest.NewRequest("GET", "/TdJXdJmF", nil),
-			},
-			expectedStatus: http.StatusBadRequest,
-			expectedHeader: "",
+			name:             "ShortURL not in UrlMap",
+			router:           r,
+			URL:              "invalidURL",
+			expectedStatus:   http.StatusBadRequest,
+			expectedLocation: "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			RedirectURL(tt.args.w, tt.args.r)
+			req := httptest.NewRequest("GET", "/"+tt.URL, nil)
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
 
-			result := tt.args.w.Result()
-			assert.Equal(t, tt.expectedStatus, result.StatusCode)
-
-			defer result.Body.Close()
-
-			if tt.expectedHeader != "" {
-				header := result.Header.Get("Location")
-				assert.Equal(t, tt.expectedHeader, header)
-			}
-
+			require.Equal(t, tt.expectedStatus, rr.Code)
+			require.Equal(t, tt.expectedLocation, rr.Header().Get("Location"))
 		})
 	}
 }
