@@ -32,6 +32,7 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	log.Println("OriginalURL: ", originalURL)
 	shortURL := GenerateShortURL(originalURL)
 	log.Println("ShortURL: ", shortURL)
+	log.Println(config.AppConfig.ServerAddress)
 	storage.URLMap[shortURL] = originalURL
 
 	rw.WriteHeader(http.StatusCreated)

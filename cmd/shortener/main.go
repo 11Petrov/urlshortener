@@ -6,16 +6,12 @@ import (
 
 	"github.com/11Petrov/urlshortener/cmd/config"
 	"github.com/11Petrov/urlshortener/internal/handlers"
-	"github.com/caarlos0/env/v9"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 )
 
 func main() {
 	cfg := config.NewConfig()
-	if err := env.Parse(cfg); err != nil {
-		panic(err)
-	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
