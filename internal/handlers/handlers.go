@@ -7,10 +7,10 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
 	"github.com/11Petrov/urlshortener/internal/storage"
-	"github.com/go-chi/chi"
 )
 
 // ShortenURL обрабатывает запросы на сокращение URL.
@@ -41,7 +41,8 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request) {
 
 // RedirectURL обрабатывает запросы на перенаправление по сокращенному URL.
 func RedirectURL(w http.ResponseWriter, r *http.Request) {
-	shortURL := chi.URLParam(r, "id")
+	path := strings.Split(r.URL.Path, "/")
+	shortURL := path[1]
 	if len(shortURL) == 0 {
 		http.Error(w, "Empty URL parametr", http.StatusBadRequest)
 		return
