@@ -15,8 +15,8 @@ import (
 
 func TestShortenURL(t *testing.T) {
 	testCfg := &config.Config{
-		Addr:    "localhost:8081",
-		BaseURL: "http://localhost:8081/",
+		ServerAddress: "localhost:8081",
+		BaseURL:       "http://localhost:8081/",
 	}
 	config.AppConfig = testCfg
 	tests := []struct {

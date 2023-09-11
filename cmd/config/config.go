@@ -1,10 +1,13 @@
 package config
 
-import "flag"
+import (
+	"flag"
+	"os"
+)
 
 type Config struct {
-	Addr    string
-	BaseURL string
+	ServerAddress string
+	BaseURL       string
 }
 
 var AppConfig *Config
@@ -12,8 +15,17 @@ var AppConfig *Config
 func NewConfig() *Config {
 	cfg := &Config{}
 
-	flag.StringVar(&cfg.Addr, "a", "localhost:8080", "адрес запуска HTTP-сервера")
-	flag.StringVar(&cfg.BaseURL, "b", "http://localhost:8080/", "базовый адрес результирующего сокращённого URL")
+	if serverAddress := os.Getenv("SERVER_ADDRESS"); serverAddress != "" {
+		cfg.ServerAddress = serverAddress
+	} else {
+		flag.StringVar(&cfg.ServerAddress, "a", "localhost:8080", "адрес запуска HTTP-сервера")
+	}
+
+	if baseURL := os.Getenv("BASE_URL"); baseURL != "" {
+		cfg.BaseURL = baseURL
+	} else {
+		flag.StringVar(&cfg.BaseURL, "b", "http://localhost:8080/", "базовый адрес результирующего сокращённого URL")
+	}
 
 	flag.Parse()
 

@@ -11,15 +11,15 @@ import (
 
 func main() {
 	cfg := config.NewConfig()
-	log.Println(cfg.Addr, cfg.BaseURL)
+	log.Println(cfg.ServerAddress, cfg.BaseURL)
 
 	r := chi.NewRouter()
 
 	r.Post("/", handlers.ShortenURL)
 	r.Get("/{id}", handlers.RedirectURL)
 
-	log.Println("Running server on", cfg.Addr)
-	err := http.ListenAndServe(cfg.Addr, r)
+	log.Println("Running server on", cfg.ServerAddress)
+	err := http.ListenAndServe(cfg.ServerAddress, r)
 	if err != nil {
 		panic(err)
 	}

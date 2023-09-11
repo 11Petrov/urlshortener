@@ -33,11 +33,10 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	shortURL := GenerateShortURL(originalURL)
 	log.Println("ShortURL: ", shortURL)
 	storage.URLMap[shortURL] = originalURL
-	log.Println(storage.URLMap)
 
 	rw.WriteHeader(http.StatusCreated)
 	rw.Header().Set("Content-Type", "text/plain")
-	rw.Write([]byte("http://" + config.AppConfig.Addr + "/" + shortURL))
+	rw.Write([]byte("http://" + config.AppConfig.ServerAddress + "/" + shortURL))
 }
 
 // RedirectURL обрабатывает запросы на перенаправление по сокращенному URL.
