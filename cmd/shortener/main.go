@@ -7,6 +7,7 @@ import (
 	"github.com/11Petrov/urlshortener/cmd/config"
 	"github.com/11Petrov/urlshortener/internal/handlers"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 )
 
 func main() {
@@ -14,6 +15,7 @@ func main() {
 	log.Println(cfg.ServerAddress, cfg.BaseURL)
 
 	r := chi.NewRouter()
+	r.Use(middleware.Logger)
 
 	r.Post("/", handlers.ShortenURL)
 	r.Get("/{id}", handlers.RedirectURL)

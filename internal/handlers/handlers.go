@@ -15,7 +15,7 @@ import (
 
 // ShortenURL обрабатывает запросы на сокращение URL.
 func ShortenURL(rw http.ResponseWriter, r *http.Request) {
-	if r.ContentLength <= 0 {
+	if r.ContentLength == 0 {
 		http.Error(rw, "Request body is missing", http.StatusBadRequest)
 		return
 	}
@@ -42,6 +42,11 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request) {
 // RedirectURL обрабатывает запросы на перенаправление по сокращенному URL.
 func RedirectURL(w http.ResponseWriter, r *http.Request) {
 	shortURL := chi.URLParam(r, "id")
+	if len(shortURL) == 0 {
+		http.Error(w, "Empty URL parametr", http.StatusBadRequest)
+		return
+	}
+
 	if url, ok := storage.URLMap[shortURL]; ok {
 		w.Header().Set("Location", url)
 		w.WriteHeader(http.StatusTemporaryRedirect)
