@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/11Petrov/urlshortener/cmd/config"
 	"github.com/11Petrov/urlshortener/internal/storage"
 	"github.com/go-chi/chi"
 )
@@ -36,7 +37,7 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request) {
 
 	rw.WriteHeader(http.StatusCreated)
 	rw.Header().Set("Content-Type", "text/plain")
-	rw.Write([]byte(storage.HostURL + shortURL))
+	rw.Write([]byte("http://" + config.AppConfig.Addr + "/" + shortURL))
 }
 
 // RedirectURL обрабатывает запросы на перенаправление по сокращенному URL.

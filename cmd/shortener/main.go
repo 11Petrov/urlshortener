@@ -4,13 +4,14 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/11Petrov/urlshortener/config"
+	"github.com/11Petrov/urlshortener/cmd/config"
 	"github.com/11Petrov/urlshortener/internal/handlers"
 	"github.com/go-chi/chi"
 )
 
 func main() {
 	cfg := config.NewConfig()
+	log.Println(cfg.Addr, cfg.BaseURL)
 
 	r := chi.NewRouter()
 
