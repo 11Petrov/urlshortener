@@ -28,9 +28,11 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	originalURL := string(body)
+	log.Println("OriginalURL: ", originalURL)
 	shortURL := GenerateShortURL(originalURL)
-	log.Println(shortURL)
+	log.Println("ShortURL: ", shortURL)
 	storage.URLMap[shortURL] = originalURL
+	log.Println(storage.URLMap)
 
 	rw.WriteHeader(http.StatusCreated)
 	rw.Header().Set("Content-Type", "text/plain")
@@ -43,6 +45,9 @@ func RedirectURL(w http.ResponseWriter, r *http.Request) {
 	if url, ok := storage.URLMap[shortURL]; ok {
 		w.Header().Set("Location", url)
 		w.WriteHeader(http.StatusTemporaryRedirect)
+
+		log.Println("StatusCode:", http.StatusTemporaryRedirect)
+		log.Println("Location:", url)
 	} else {
 		http.Error(w, "Url not found", http.StatusBadRequest)
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/11Petrov/urlshortener/config"
@@ -16,6 +17,7 @@ func main() {
 	r.Post("/", handlers.ShortenURL)
 	r.Get("/{id}", handlers.RedirectURL)
 
+	log.Println("Running server on", cfg.Addr)
 	err := http.ListenAndServe(cfg.Addr, r)
 	if err != nil {
 		panic(err)
