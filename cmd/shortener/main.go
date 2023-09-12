@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 
@@ -12,6 +13,9 @@ import (
 
 func main() {
 	cfg := config.NewConfig()
+	log.Println("~~~~~~~~~~", cfg.ServerAddress, cfg.BaseURL)
+	flag.Parse()
+	log.Println("~~~~~~~~~~", cfg.ServerAddress, cfg.BaseURL)
 	config.Set(cfg)
 
 	r := chi.NewRouter()

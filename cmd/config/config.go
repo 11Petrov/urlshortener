@@ -12,20 +12,34 @@ type Config struct {
 	BaseURL       string
 }
 
+var (
+	serverAddresFlag string
+	baseURLFlag      string
+)
+
+func init() {
+	flag.StringVar(&serverAddresFlag, "a", "localhost:8080", "адрес запуска HTTP-сервера")
+	flag.StringVar(&baseURLFlag, "b", "http://localhost:8080/", "базовый адрес результирующего сокращённого URL")
+}
+
 var AppConfig *Config
 
 func NewConfig() *Config {
+	flag.Parse()
+
 	cfg := &Config{}
 
-	if cfg.ServerAddress = os.Getenv("SERVER_ADDRESS"); cfg.ServerAddress == "" {
-		flag.StringVar(&cfg.ServerAddress, "a", "localhost:8080", "адрес запуска HTTP-сервера")
+	if envServerAddress := os.Getenv("SERVER_ADDRESS"); envServerAddress != "" {
+		cfg.ServerAddress = envServerAddress
+	} else {
+		cfg.ServerAddress = serverAddresFlag
 	}
 
-	if cfg.BaseURL = os.Getenv("BASE_URL"); cfg.BaseURL == "" {
-		flag.StringVar(&cfg.BaseURL, "b", "http://localhost:8080/", "базовый адрес результирующего сокращённого URL")
+	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
+		cfg.BaseURL = envBaseURL
+	} else {
+		cfg.BaseURL = baseURLFlag
 	}
-
-	flag.Parse()
 
 	AppConfig = cfg
 
@@ -39,7 +53,6 @@ func Set(c *Config) string {
 	if parts[0] == "" {
 		c.ServerAddress = "localhost:" + parts[1]
 	}
-	log.Println(parts)
-	log.Println(c.ServerAddress)
+	log.Println(c.ServerAddress, c.BaseURL)
 	return c.ServerAddress
 }
