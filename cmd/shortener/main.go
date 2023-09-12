@@ -13,11 +13,15 @@ import (
 
 func main() {
 	cfg := config.NewConfig()
-	log.Println("~~~~~~~~~~", cfg.ServerAddress, cfg.BaseURL)
 	flag.Parse()
-	log.Println("~~~~~~~~~~", cfg.ServerAddress, cfg.BaseURL)
 	config.Set(cfg)
 
+	if err := Run(cfg); err != nil {
+		panic(err)
+	}
+}
+
+func Run(cfg *config.Config) error {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
@@ -25,8 +29,5 @@ func main() {
 	r.Get("/{id}", handlers.RedirectURL)
 
 	log.Println("Running server on", cfg.ServerAddress)
-	err := http.ListenAndServe(cfg.ServerAddress, r)
-	if err != nil {
-		panic(err)
-	}
+	return http.ListenAndServe(cfg.ServerAddress, r)
 }

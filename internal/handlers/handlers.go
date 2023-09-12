@@ -32,12 +32,15 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	log.Println("OriginalURL: ", originalURL)
 	shortURL := GenerateShortURL(originalURL)
 	log.Println("ShortURL: ", shortURL)
-	log.Println(config.AppConfig.ServerAddress)
+
 	storage.URLMap[shortURL] = originalURL
+
+	responseURL := "http://" + config.AppConfig.ServerAddress + "/" + shortURL
+	log.Println("ResponseURL:", responseURL)
 
 	rw.WriteHeader(http.StatusCreated)
 	rw.Header().Set("Content-Type", "text/plain")
-	rw.Write([]byte("http://" + config.AppConfig.ServerAddress + "/" + shortURL))
+	rw.Write([]byte(responseURL))
 }
 
 // RedirectURL обрабатывает запросы на перенаправление по сокращенному URL.
@@ -45,7 +48,7 @@ func RedirectURL(w http.ResponseWriter, r *http.Request) {
 	path := strings.Split(r.URL.Path, "/")
 	shortURL := path[1]
 	if len(shortURL) == 0 {
-		http.Error(w, "Empty URL parametr", http.StatusBadRequest)
+		http.Error(w, "Empty URL parameter", http.StatusBadRequest)
 		return
 	}
 

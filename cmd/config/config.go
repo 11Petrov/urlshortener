@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Config содержит конфигурационные параметры приложения.
 type Config struct {
 	ServerAddress string
 	BaseURL       string
@@ -17,6 +18,7 @@ var (
 	baseURLFlag      string
 )
 
+// Инициализация флагов командной строки.
 func init() {
 	flag.StringVar(&serverAddresFlag, "a", "localhost:8080", "адрес запуска HTTP-сервера")
 	flag.StringVar(&baseURLFlag, "b", "http://localhost:8080/", "базовый адрес результирующего сокращённого URL")
@@ -24,6 +26,7 @@ func init() {
 
 var AppConfig *Config
 
+// NewConfig создает новый экземпляр конфигурации приложения на основе флагов командной строки и переменных окружения.
 func NewConfig() *Config {
 	flag.Parse()
 
@@ -46,6 +49,7 @@ func NewConfig() *Config {
 	return cfg
 }
 
+// Set обновляет конфигурацию и возвращает отформатированный адрес сервера.
 func Set(c *Config) string {
 	c.ServerAddress = strings.TrimPrefix(c.ServerAddress, "http://")
 
