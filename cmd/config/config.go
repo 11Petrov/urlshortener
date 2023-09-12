@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"log"
 	"os"
 	"strings"
 )
@@ -26,9 +27,19 @@ func NewConfig() *Config {
 
 	flag.Parse()
 
-	cfg.ServerAddress = strings.TrimPrefix(cfg.ServerAddress, "http://")
-
 	AppConfig = cfg
 
 	return cfg
+}
+
+func Set(c *Config) string {
+	c.ServerAddress = strings.TrimPrefix(c.ServerAddress, "http://")
+
+	parts := strings.Split(c.ServerAddress, ":")
+	if parts[0] == "" {
+		c.ServerAddress = "localhost:" + parts[1]
+	}
+	log.Println(parts)
+	log.Println(c.ServerAddress)
+	return c.ServerAddress
 }

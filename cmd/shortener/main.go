@@ -12,6 +12,7 @@ import (
 
 func main() {
 	cfg := config.NewConfig()
+	config.Set(cfg)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
