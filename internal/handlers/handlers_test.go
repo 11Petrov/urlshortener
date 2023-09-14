@@ -54,14 +54,14 @@ func TestShortenURL(t *testing.T) {
 }
 
 func TestRedirectURL(t *testing.T) {
-	testUrlStorage := storage.NewStorageURLMap()
+	testURLStorage := storage.NewStorageURLMap()
 
 	r := chi.NewRouter()
 	r.HandleFunc("/{id}", RedirectURL)
 
 	testURL := "https://practicum.yandex.ru/"
 	shortURL := utils.GenerateShortURL(testURL)
-	testUrlStorage.SetURL(testURL)
+	testURLStorage.SetURL(testURL)
 
 	tests := []struct {
 		name             string
