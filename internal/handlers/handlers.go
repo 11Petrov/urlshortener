@@ -1,20 +1,18 @@
 package handlers
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"io"
-	"log"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
-	"github.com/11Petrov/urlshortener/internal/storage"
+	storage "github.com/11Petrov/urlshortener/internal/storage/urls"
 )
 
+var urlStorage = storage.NewStorageURLMap()
+
 // ShortenURL обрабатывает запросы на сокращение URL.
-func ShortenURL(rw http.ResponseWriter, r *http.Request) {
+func ShortenURL(rw http.ResponseWriter, r *http.Request, cfg *config.Config) {
 	if r.ContentLength == 0 {
 		http.Error(rw, "Request body is missing", http.StatusBadRequest)
 		return
@@ -29,14 +27,8 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	originalURL := string(body)
-	log.Println("OriginalURL: ", originalURL)
-	shortURL := GenerateShortURL(originalURL)
-	log.Println("ShortURL: ", shortURL)
-
-	storage.URLMap[shortURL] = originalURL
-
-	responseURL := "http://" + config.AppConfig.ServerAddress + "/" + shortURL
-	log.Println("ResponseURL:", responseURL)
+	shortURL := urlStorage.SetURL(originalURL)
+	responseURL := "http://" + cfg.ServerAddress + "/" + shortURL
 
 	rw.WriteHeader(http.StatusCreated)
 	rw.Header().Set("Content-Type", "text/plain")
@@ -52,22 +44,11 @@ func RedirectURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if url, ok := storage.URLMap[shortURL]; ok {
-		w.Header().Set("Location", url)
-		w.WriteHeader(http.StatusTemporaryRedirect)
-
-		log.Println("StatusCode:", http.StatusTemporaryRedirect)
-		log.Println("Location:", url)
-	} else {
+	url, err := urlStorage.GetURL(shortURL)
+	if err != nil {
 		http.Error(w, "Url not found", http.StatusBadRequest)
+		return
 	}
-}
-
-// GenerateShortURL генерирует сокращенный URL на основе хэша.
-func GenerateShortURL(url string) string {
-	hash := sha256.Sum256([]byte(url))
-	shortURL := base64.URLEncoding.EncodeToString(hash[:])
-	regExp := regexp.MustCompile("[^a-zA-Z0-9]+")
-	shortURL = regExp.ReplaceAllString(shortURL, "")
-	return shortURL[:8]
+	w.Header().Set("Location", url)
+	w.WriteHeader(http.StatusTemporaryRedirect)
 }

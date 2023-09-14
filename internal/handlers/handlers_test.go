@@ -7,7 +7,8 @@ import (
 	"testing"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
-	"github.com/11Petrov/urlshortener/internal/storage"
+	storage "github.com/11Petrov/urlshortener/internal/storage/urls"
+	"github.com/11Petrov/urlshortener/internal/utils"
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,6 @@ func TestShortenURL(t *testing.T) {
 		ServerAddress: "localhost:8081",
 		BaseURL:       "http://localhost:8081/",
 	}
-	config.AppConfig = testCfg
 	tests := []struct {
 		name                 string
 		requestBody          string
@@ -29,7 +29,7 @@ func TestShortenURL(t *testing.T) {
 			name:                 "Test ShortenURL success",
 			requestBody:          "https://practicum.yandex.ru/",
 			expectedStatus:       http.StatusCreated,
-			expectedResponseBody: config.AppConfig.BaseURL + GenerateShortURL("https://practicum.yandex.ru/"),
+			expectedResponseBody: testCfg.BaseURL + utils.GenerateShortURL("https://practicum.yandex.ru/"),
 		},
 		{
 			name:                 "Test ShortenURL without body",
@@ -43,7 +43,7 @@ func TestShortenURL(t *testing.T) {
 			body := strings.NewReader(tt.requestBody)
 			request := httptest.NewRequest("POST", "/shorten", body)
 			w := httptest.NewRecorder()
-			ShortenURL(w, request)
+			ShortenURL(w, request, testCfg)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
@@ -54,14 +54,14 @@ func TestShortenURL(t *testing.T) {
 }
 
 func TestRedirectURL(t *testing.T) {
-	storage.URLMap = make(map[string]string)
+	testUrlStorage := storage.NewStorageURLMap()
 
 	r := chi.NewRouter()
 	r.HandleFunc("/{id}", RedirectURL)
 
 	testURL := "https://practicum.yandex.ru/"
-	shortURL := GenerateShortURL(testURL)
-	storage.URLMap[shortURL] = testURL
+	shortURL := utils.GenerateShortURL(testURL)
+	testUrlStorage.SetURL(testURL)
 
 	tests := []struct {
 		name             string

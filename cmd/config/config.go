@@ -2,7 +2,6 @@ package config
 
 import (
 	"flag"
-	"log"
 	"os"
 	"strings"
 )
@@ -13,21 +12,10 @@ type Config struct {
 	BaseURL       string
 }
 
-var (
-	serverAddresFlag string
-	baseURLFlag      string
-)
-
-// Инициализация флагов командной строки.
-func init() {
-	flag.StringVar(&serverAddresFlag, "a", "localhost:8080", "адрес запуска HTTP-сервера")
-	flag.StringVar(&baseURLFlag, "b", "http://localhost:8080/", "базовый адрес результирующего сокращённого URL")
-}
-
-var AppConfig *Config
-
 // NewConfig создает новый экземпляр конфигурации приложения на основе флагов командной строки и переменных окружения.
 func NewConfig() *Config {
+	serverAddressFlag := flag.String("a", "localhost:8080", "адрес запуска HTTP-сервера")
+	baseURLFlag := flag.String("b", "http://localhost:8080/", "базовый адрес результирующего сокращённого URL")
 	flag.Parse()
 
 	cfg := &Config{}
@@ -35,28 +23,20 @@ func NewConfig() *Config {
 	if envServerAddress := os.Getenv("SERVER_ADDRESS"); envServerAddress != "" {
 		cfg.ServerAddress = envServerAddress
 	} else {
-		cfg.ServerAddress = serverAddresFlag
+		cfg.ServerAddress = *serverAddressFlag
 	}
 
 	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
 		cfg.BaseURL = envBaseURL
 	} else {
-		cfg.BaseURL = baseURLFlag
+		cfg.BaseURL = *baseURLFlag
 	}
 
-	AppConfig = cfg
+	cfg.ServerAddress = strings.TrimPrefix(cfg.ServerAddress, "http://")
+	parts := strings.Split(cfg.ServerAddress, ":")
+	if parts[0] == "" {
+		cfg.ServerAddress = "localhost:" + parts[1]
+	}
 
 	return cfg
-}
-
-// Set обновляет конфигурацию и возвращает отформатированный адрес сервера.
-func Set(c *Config) string {
-	c.ServerAddress = strings.TrimPrefix(c.ServerAddress, "http://")
-
-	parts := strings.Split(c.ServerAddress, ":")
-	if parts[0] == "" {
-		c.ServerAddress = "localhost:" + parts[1]
-	}
-	log.Println(c.ServerAddress, c.BaseURL)
-	return c.ServerAddress
 }

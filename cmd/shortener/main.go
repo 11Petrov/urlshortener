@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"net/http"
 
@@ -13,8 +12,6 @@ import (
 
 func main() {
 	cfg := config.NewConfig()
-	flag.Parse()
-	config.Set(cfg)
 
 	if err := Run(cfg); err != nil {
 		panic(err)
@@ -25,7 +22,9 @@ func Run(cfg *config.Config) error {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
-	r.Post("/", handlers.ShortenURL)
+	r.Post("/", func(rw http.ResponseWriter, r *http.Request) {
+		handlers.ShortenURL(rw, r, cfg)
+	})
 	r.Get("/{id}", handlers.RedirectURL)
 
 	log.Println("Running server on", cfg.ServerAddress)
