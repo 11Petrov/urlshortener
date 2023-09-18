@@ -41,8 +41,7 @@ func (t *testStorage) RedirectURL(shortURL string) (string, error) {
 
 func TestShortenURL(t *testing.T) {
 	testCfg := &config.Config{
-		ServerAddress: "localhost:8081",
-		BaseURL:       "http://localhost:8081",
+		BaseURL: "http://localhost:8081",
 	}
 	tests := []struct {
 		name                 string
@@ -84,8 +83,7 @@ func TestShortenURL(t *testing.T) {
 
 func TestRedirectURL(t *testing.T) {
 	testCfg := &config.Config{
-		ServerAddress: "localhost:8081",
-		BaseURL:       "http://localhost:8081",
+		BaseURL: "http://localhost:8081",
 	}
 
 	testStorage2 := storage.NewStorageURL()
