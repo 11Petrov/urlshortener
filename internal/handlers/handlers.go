@@ -5,14 +5,28 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/11Petrov/urlshortener/cmd/config"
-	storage "github.com/11Petrov/urlshortener/internal/storage/urls"
+	"github.com/11Petrov/urlshortener/internal/storage"
 )
 
-var urlStorage = storage.NewStorageURLMap()
+type URLHandlerInterface interface {
+	ShortenURL(rw http.ResponseWriter, r *http.Request)
+	RedirectURL(rw http.ResponseWriter, r *http.Request)
+}
+
+type URLHandler struct {
+	dataStore storage.DataStore
+	baseURL   string
+}
+
+func NewURLHandler(dataStore storage.DataStore, baseURL string) URLHandlerInterface {
+	return &URLHandler{
+		dataStore: dataStore,
+		baseURL:   baseURL,
+	}
+}
 
 // ShortenURL обрабатывает запросы на сокращение URL.
-func ShortenURL(rw http.ResponseWriter, r *http.Request, cfg *config.Config) {
+func (h *URLHandler) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	if r.ContentLength == 0 {
 		http.Error(rw, "Request body is missing", http.StatusBadRequest)
 		return
@@ -27,8 +41,8 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request, cfg *config.Config) {
 	}
 
 	originalURL := string(body)
-	shortURL := urlStorage.SetURL(originalURL)
-	responseURL := "http://" + cfg.ServerAddress + "/" + shortURL
+	shortURL := h.dataStore.ShortenURL(originalURL)
+	responseURL := h.baseURL + "/" + shortURL
 
 	rw.WriteHeader(http.StatusCreated)
 	rw.Header().Set("Content-Type", "text/plain")
@@ -36,7 +50,7 @@ func ShortenURL(rw http.ResponseWriter, r *http.Request, cfg *config.Config) {
 }
 
 // RedirectURL обрабатывает запросы на перенаправление по сокращенному URL.
-func RedirectURL(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) RedirectURL(w http.ResponseWriter, r *http.Request) {
 	path := strings.Split(r.URL.Path, "/")
 	shortURL := path[1]
 	if len(shortURL) == 0 {
@@ -44,7 +58,7 @@ func RedirectURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, err := urlStorage.GetURL(shortURL)
+	url, err := h.dataStore.RedirectURL(shortURL)
 	if err != nil {
 		http.Error(w, "Url not found", http.StatusBadRequest)
 		return
