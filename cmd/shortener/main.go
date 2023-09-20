@@ -21,7 +21,7 @@ func main() {
 
 func Run(cfg *config.Config) error {
 	storeURL := storage.NewRepoURL()
-	h := handlers.NewURLHandler(storeURL, cfg.BaseURL)
+	h := handlers.NewHandlerURL(storeURL, cfg.BaseURL)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

@@ -64,7 +64,7 @@ func TestShortenURL(t *testing.T) {
 	}
 
 	testStorage1 := newTestStorage()
-	testHandler := NewURLHandler(testStorage1, testCfg.BaseURL)
+	testHandler := NewHandlerURL(testStorage1, testCfg.BaseURL)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -87,7 +87,7 @@ func TestRedirectURL(t *testing.T) {
 	}
 
 	testStorage2 := storage.NewRepoURL()
-	testHandler2 := NewURLHandler(testStorage2, testCfg.BaseURL)
+	testHandler2 := NewHandlerURL(testStorage2, testCfg.BaseURL)
 
 	r := chi.NewRouter()
 	r.HandleFunc("/{id}", testHandler2.RedirectURL)

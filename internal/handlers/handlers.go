@@ -6,28 +6,28 @@ import (
 	"strings"
 )
 
-// HandlerURLStore определяет приватный интерфейс для хранилища URL
-type HandlerURLStore interface {
+// handlerURLStore определяет приватный интерфейс для хранилища URL
+type handlerURLStore interface {
 	ShortenURL(originalURL string) string
 	RedirectURL(shortURL string) (string, error)
 }
 
 // URLHandler обрабатывает HTTP-запросы
-type URLHandler struct {
-	storeURL HandlerURLStore
+type handlerURL struct {
+	storeURL handlerURLStore
 	baseURL  string
 }
 
 // NewURLHandler создает новый экземпляр URLHandler
-func NewURLHandler(storeURL HandlerURLStore, baseURL string) *URLHandler {
-	return &URLHandler{
+func NewHandlerURL(storeURL handlerURLStore, baseURL string) *handlerURL {
+	return &handlerURL{
 		storeURL: storeURL,
 		baseURL:  baseURL,
 	}
 }
 
 // ShortenURL обрабатывает запросы на сокращение URL
-func (h *URLHandler) ShortenURL(rw http.ResponseWriter, r *http.Request) {
+func (h *handlerURL) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	if r.ContentLength == 0 {
 		http.Error(rw, "Request body is missing", http.StatusBadRequest)
 		return
@@ -51,7 +51,7 @@ func (h *URLHandler) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 }
 
 // RedirectURL обрабатывает запросы на перенаправление по сокращенному URL
-func (h *URLHandler) RedirectURL(w http.ResponseWriter, r *http.Request) {
+func (h *handlerURL) RedirectURL(w http.ResponseWriter, r *http.Request) {
 	path := strings.Split(r.URL.Path, "/")
 	shortURL := path[1]
 	if len(shortURL) == 0 {
