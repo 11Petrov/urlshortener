@@ -19,7 +19,7 @@ type testStorage struct {
 	URLMap map[string]string
 }
 
-func newTestStorage() storage.DataStore {
+func newTestStorage() storage.URLStore {
 	return &testStorage{
 		URLMap: make(map[string]string),
 	}
@@ -86,7 +86,7 @@ func TestRedirectURL(t *testing.T) {
 		BaseURL: "http://localhost:8081",
 	}
 
-	testStorage2 := storage.NewStorageURL()
+	testStorage2 := storage.NewRepoURL()
 	testHandler2 := NewURLHandler(testStorage2, testCfg.BaseURL)
 
 	r := chi.NewRouter()

@@ -6,28 +6,33 @@ import (
 	"github.com/11Petrov/urlshortener/internal/utils"
 )
 
-type DataStore interface {
+// URLStore определяет интерфейс для хранилища URL
+type URLStore interface {
 	ShortenURL(originalURL string) string
 	RedirectURL(shortURL string) (string, error)
 }
 
-type StorageURL struct {
+// RepoURL - структура, реализующая интерфейс URLStore
+type RepoURL struct {
 	URLMap map[string]string
 }
 
-func NewStorageURL() DataStore {
-	return &StorageURL{
+// NewRepoURL создает новый экземпляр RepoURL
+func NewRepoURL() URLStore {
+	return &RepoURL{
 		URLMap: make(map[string]string),
 	}
 }
 
-func (s *StorageURL) ShortenURL(originalURL string) string {
+// ShortenURL сокращает оригинальный URL и сохраняет его в хранилище, возвращая сокращенный URL
+func (s *RepoURL) ShortenURL(originalURL string) string {
 	shortURL := utils.GenerateShortURL(originalURL)
 	s.URLMap[shortURL] = originalURL
 	return shortURL
 }
 
-func (s *StorageURL) RedirectURL(shortURL string) (string, error) {
+// RedirectURL возвращает оригинальный URL
+func (s *RepoURL) RedirectURL(shortURL string) (string, error) {
 	url, ok := s.URLMap[shortURL]
 	if !ok {
 		return "", errors.New("url not found")

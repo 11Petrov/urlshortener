@@ -20,8 +20,8 @@ func main() {
 }
 
 func Run(cfg *config.Config) error {
-	storage := storage.NewStorageURL()
-	h := handlers.NewURLHandler(storage, cfg.BaseURL)
+	storeURL := storage.NewRepoURL()
+	h := handlers.NewURLHandler(storeURL, cfg.BaseURL)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

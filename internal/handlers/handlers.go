@@ -4,28 +4,29 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
-	"github.com/11Petrov/urlshortener/internal/storage"
 )
 
-type URLHandlerInterface interface {
-	ShortenURL(rw http.ResponseWriter, r *http.Request)
-	RedirectURL(rw http.ResponseWriter, r *http.Request)
+// HandlerURLStore определяет приватный интерфейс для хранилища URL
+type HandlerURLStore interface {
+	ShortenURL(originalURL string) string
+	RedirectURL(shortURL string) (string, error)
 }
 
+// URLHandler обрабатывает HTTP-запросы
 type URLHandler struct {
-	dataStore storage.DataStore
-	baseURL   string
+	storeURL HandlerURLStore
+	baseURL  string
 }
 
-func NewURLHandler(dataStore storage.DataStore, baseURL string) URLHandlerInterface {
+// NewURLHandler создает новый экземпляр URLHandler
+func NewURLHandler(storeURL HandlerURLStore, baseURL string) *URLHandler {
 	return &URLHandler{
-		dataStore: dataStore,
-		baseURL:   baseURL,
+		storeURL: storeURL,
+		baseURL:  baseURL,
 	}
 }
 
-// ShortenURL обрабатывает запросы на сокращение URL.
+// ShortenURL обрабатывает запросы на сокращение URL
 func (h *URLHandler) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	if r.ContentLength == 0 {
 		http.Error(rw, "Request body is missing", http.StatusBadRequest)
@@ -41,7 +42,7 @@ func (h *URLHandler) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	originalURL := string(body)
-	shortURL := h.dataStore.ShortenURL(originalURL)
+	shortURL := h.storeURL.ShortenURL(originalURL)
 	responseURL := h.baseURL + "/" + shortURL
 
 	rw.WriteHeader(http.StatusCreated)
@@ -49,7 +50,7 @@ func (h *URLHandler) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	rw.Write([]byte(responseURL))
 }
 
-// RedirectURL обрабатывает запросы на перенаправление по сокращенному URL.
+// RedirectURL обрабатывает запросы на перенаправление по сокращенному URL
 func (h *URLHandler) RedirectURL(w http.ResponseWriter, r *http.Request) {
 	path := strings.Split(r.URL.Path, "/")
 	shortURL := path[1]
@@ -58,7 +59,7 @@ func (h *URLHandler) RedirectURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, err := h.dataStore.RedirectURL(shortURL)
+	url, err := h.storeURL.RedirectURL(shortURL)
 	if err != nil {
 		http.Error(w, "Url not found", http.StatusBadRequest)
 		return

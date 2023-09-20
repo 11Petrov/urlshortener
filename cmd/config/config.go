@@ -6,30 +6,44 @@ import (
 	"strings"
 )
 
-// Config содержит конфигурационные параметры приложения.
+// Config содержит конфигурационные параметры приложения
 type Config struct {
 	ServerAddress string
 	BaseURL       string
 }
 
-// NewConfig создает новый экземпляр конфигурации приложения на основе флагов командной строки и переменных окружения.
-func NewConfig() *Config {
+// parseFlags обрабатывает флаги командной строки и возвращает значения по умолчанию, если флаги не установлены
+func parseFlags() (string, string) {
 	serverAddressFlag := flag.String("a", "localhost:8080", "адрес запуска HTTP-сервера")
 	baseURLFlag := flag.String("b", "http://localhost:8080", "базовый адрес результирующего сокращённого URL")
 	flag.Parse()
+	return *serverAddressFlag, *baseURLFlag
+}
+
+// parseEnv обрабатывает переменные окружения и возвращает их значения
+func parseEnv() (string, string) {
+	envServerAddress := os.Getenv("SERVER_ADDRESS")
+	envBaseURL := os.Getenv("BASE_URL")
+	return envServerAddress, envBaseURL
+}
+
+// NewConfig создает новый экземпляр конфигурации приложения на основе флагов командной строки и переменных окружения
+func NewConfig() *Config {
+	serverAddressFlag, baseURLFlag := parseFlags()
+	envServerAddress, envBaseURL := parseEnv()
 
 	cfg := &Config{}
 
-	if envServerAddress := os.Getenv("SERVER_ADDRESS"); envServerAddress != "" {
+	if envServerAddress != "" {
 		cfg.ServerAddress = envServerAddress
 	} else {
-		cfg.ServerAddress = *serverAddressFlag
+		cfg.ServerAddress = serverAddressFlag
 	}
 
-	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
+	if envBaseURL != "" {
 		cfg.BaseURL = envBaseURL
 	} else {
-		cfg.BaseURL = *baseURLFlag
+		cfg.BaseURL = baseURLFlag
 	}
 
 	cfg.ServerAddress = strings.TrimPrefix(cfg.ServerAddress, "http://")
