@@ -15,6 +15,7 @@ func main() {
 
 	if err := Run(cfg); err != nil {
 		logger.Sugar.Fatal(err)
+		panic(err)
 	}
 }
 
