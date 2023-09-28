@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -8,7 +9,7 @@ import (
 
 // handlerURLStore определяет приватный интерфейс для хранилища URL
 type handlerURLStore interface {
-	ShortenURL(originalURL string) string
+	ShortenURL(originalURL string) (string, error)
 	RedirectURL(shortURL string) (string, error)
 }
 
@@ -16,6 +17,14 @@ type handlerURLStore interface {
 type handlerURL struct {
 	storeURL handlerURLStore
 	baseURL  string
+}
+
+type JSONShortenURLRequest struct {
+	URL string `json:"url"`
+}
+
+type JSONShortenURLResponse struct {
+	Result string `json:"result"`
 }
 
 // NewURLHandler создает новый экземпляр URLHandler
@@ -42,7 +51,10 @@ func (h *handlerURL) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	originalURL := string(body)
-	shortURL := h.storeURL.ShortenURL(originalURL)
+	shortURL, err := h.storeURL.ShortenURL(originalURL)
+	if err != nil {
+		return
+	}
 	responseURL := h.baseURL + "/" + shortURL
 
 	rw.WriteHeader(http.StatusCreated)
@@ -51,19 +63,43 @@ func (h *handlerURL) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 }
 
 // RedirectURL обрабатывает запросы на перенаправление по сокращенному URL
-func (h *handlerURL) RedirectURL(w http.ResponseWriter, r *http.Request) {
+func (h *handlerURL) RedirectURL(rw http.ResponseWriter, r *http.Request) {
 	path := strings.Split(r.URL.Path, "/")
 	shortURL := path[1]
 	if len(shortURL) == 0 {
-		http.Error(w, "Empty URL parameter", http.StatusBadRequest)
+		http.Error(rw, "Empty URL parameter", http.StatusBadRequest)
 		return
 	}
 
 	url, err := h.storeURL.RedirectURL(shortURL)
 	if err != nil {
-		http.Error(w, "Url not found", http.StatusBadRequest)
+		http.Error(rw, "Url not found", http.StatusBadRequest)
 		return
 	}
-	w.Header().Set("Location", url)
-	w.WriteHeader(http.StatusTemporaryRedirect)
+	rw.Header().Set("Location", url)
+	rw.WriteHeader(http.StatusTemporaryRedirect)
+}
+
+// JSONShortenURL обрабатывает запросы на сокращение URL и возвращает JSON-ответ
+func (h *handlerURL) JSONShortenURL(rw http.ResponseWriter, r *http.Request) {
+	var req JSONShortenURLRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(rw, "Invalid decode json", http.StatusBadRequest)
+		return
+	}
+
+	shortURL, err := h.storeURL.ShortenURL(req.URL)
+	if err != nil {
+		return
+	}
+	resp := JSONShortenURLResponse{Result: h.baseURL + "/" + shortURL}
+
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(http.StatusCreated)
+
+	if err := json.NewEncoder(rw).Encode(resp); err != nil {
+		http.Error(rw, "Invalid encode json", http.StatusBadRequest)
+		return
+	}
 }
