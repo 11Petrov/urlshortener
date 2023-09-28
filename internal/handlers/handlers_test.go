@@ -2,24 +2,29 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
-	"github.com/11Petrov/urlshortener/internal/storage"
 	"github.com/11Petrov/urlshortener/internal/utils"
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+type TestURLStore interface {
+	ShortenURL(originalURL string) string
+	RedirectURL(shortURL string) (string, error)
+}
+
 type testStorage struct {
 	URLMap map[string]string
 }
 
-func newTestStorage() storage.URLStore {
+func newTestStorage() TestURLStore {
 	return &testStorage{
 		URLMap: make(map[string]string),
 	}
@@ -64,14 +69,14 @@ func TestShortenURL(t *testing.T) {
 	}
 
 	testStorage1 := newTestStorage()
-	testHandler := NewHandlerURL(testStorage1, testCfg.BaseURL)
+	testHandler1 := NewHandlerURL(testStorage1, testCfg.BaseURL)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := strings.NewReader(tt.requestBody)
 			request := httptest.NewRequest("POST", "/shorten", body)
 			w := httptest.NewRecorder()
-			testHandler.ShortenURL(w, request)
+			testHandler1.ShortenURL(w, request)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
@@ -86,7 +91,7 @@ func TestRedirectURL(t *testing.T) {
 		BaseURL: "http://localhost:8081",
 	}
 
-	testStorage2 := storage.NewRepoURL()
+	testStorage2 := newTestStorage()
 	testHandler2 := NewHandlerURL(testStorage2, testCfg.BaseURL)
 
 	r := chi.NewRouter()
@@ -126,6 +131,48 @@ func TestRedirectURL(t *testing.T) {
 
 			require.Equal(t, tt.expectedStatus, rr.Code)
 			require.Equal(t, tt.expectedLocation, rr.Header().Get("Location"))
+		})
+	}
+}
+
+func TestJSONShortenURL(t *testing.T) {
+	testCfg := &config.Config{
+		BaseURL: "http://localhost:8081",
+	}
+	tests := []struct {
+		name                 string
+		requestBody          string
+		expectedStatus       int
+		expectedResponseBody string
+	}{
+		{
+			name:                 "Test JSONShortenURL success.",
+			requestBody:          `{"url": "https://practicum.yandex.ru/"}`,
+			expectedStatus:       http.StatusCreated,
+			expectedResponseBody: `{"result":"` + testCfg.BaseURL + "/" + utils.GenerateShortURL("https://practicum.yandex.ru/") + `"}`,
+		},
+		{
+			name:                 "Test JSONShortenURL invalid JSON",
+			requestBody:          `invalid JSON`,
+			expectedStatus:       http.StatusBadRequest,
+			expectedResponseBody: "Invalid decode json",
+		},
+	}
+	testStorage3 := newTestStorage()
+	testHandler3 := NewHandlerURL(testStorage3, testCfg.BaseURL)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := strings.NewReader(tt.requestBody)
+			fmt.Println(body)
+			request := httptest.NewRequest("POST", "/api/shorten", body)
+			w := httptest.NewRecorder()
+			testHandler3.JSONShortenURL(w, request)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			resultBody := strings.TrimSpace(w.Body.String())
+			assert.Equal(t, tt.expectedResponseBody, resultBody)
 		})
 	}
 }
