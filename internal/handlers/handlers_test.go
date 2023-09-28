@@ -146,7 +146,7 @@ func TestJSONShortenURL(t *testing.T) {
 		expectedResponseBody string
 	}{
 		{
-			name:                 "Test JSONShortenURL success",
+			name:                 "Test JSONShortenURL success.",
 			requestBody:          `{"url": "https://practicum.yandex.ru/"}`,
 			expectedStatus:       http.StatusCreated,
 			expectedResponseBody: `{"result":"` + testCfg.BaseURL + "/" + utils.GenerateShortURL("https://practicum.yandex.ru/") + `"}`,
