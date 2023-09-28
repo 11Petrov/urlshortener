@@ -27,6 +27,7 @@ func Run(cfg *config.Config) error {
 
 	r.Post("/", h.ShortenURL)
 	r.Get("/{id}", h.RedirectURL)
+	r.Post("/api/shorten", h.JSONShortenURL)
 
 	logger.Sugar.Infow(
 		"Running server",
