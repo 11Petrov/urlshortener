@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
+	"github.com/11Petrov/urlshortener/internal/gzip"
 	"github.com/11Petrov/urlshortener/internal/handlers"
 	"github.com/11Petrov/urlshortener/internal/logger"
 	"github.com/11Petrov/urlshortener/internal/storage"
@@ -25,9 +26,9 @@ func Run(cfg *config.Config) error {
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging)
 
-	r.Post("/", h.ShortenURL)
-	r.Get("/{id}", h.RedirectURL)
-	r.Post("/api/shorten", h.JSONShortenURL)
+	r.Post("/", gzip.GzipMiddleware(h.ShortenURL))
+	r.Get("/{id}", gzip.GzipMiddleware(h.RedirectURL))
+	r.Post("/api/shorten", gzip.GzipMiddleware(h.JSONShortenURL))
 
 	logger.Sugar.Infow(
 		"Running server",
