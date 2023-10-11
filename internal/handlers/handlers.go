@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -102,4 +103,14 @@ func (h *handlerURL) JSONShortenURL(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, "Invalid encode json", http.StatusBadRequest)
 		return
 	}
+}
+
+func (h *handlerURL) Ping(rw http.ResponseWriter, r *http.Request, conn *sql.DB) {
+	err := conn.Ping()
+	if err != nil {
+		http.Error(rw, "Database connection failed", http.StatusInternalServerError)
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
 }

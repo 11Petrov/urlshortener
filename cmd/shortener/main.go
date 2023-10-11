@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
@@ -8,7 +9,10 @@ import (
 	"github.com/11Petrov/urlshortener/internal/handlers"
 	"github.com/11Petrov/urlshortener/internal/logger"
 	"github.com/11Petrov/urlshortener/internal/storage"
+
 	"github.com/go-chi/chi"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
@@ -24,6 +28,10 @@ func Run(cfg *config.Config) error {
 	if err != nil {
 		logger.Sugar.Fatal(err)
 	}
+	conn, err := sql.Open("pgx", cfg.DatabaseAddress)
+	if err != nil {
+		logger.Sugar.Fatal(err)
+	}
 	h := handlers.NewHandlerURL(storeURL, cfg.BaseURL)
 
 	r := chi.NewRouter()
@@ -32,7 +40,9 @@ func Run(cfg *config.Config) error {
 	r.Post("/", gzip.GzipMiddleware(h.ShortenURL))
 	r.Get("/{id}", gzip.GzipMiddleware(h.RedirectURL))
 	r.Post("/api/shorten", gzip.GzipMiddleware(h.JSONShortenURL))
-
+	r.Get("/ping", func(rw http.ResponseWriter, r *http.Request) {
+		h.Ping(rw, r, conn)
+	})
 	logger.Sugar.Infow(
 		"Running server",
 		"address", cfg.ServerAddress,
