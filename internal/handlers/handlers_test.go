@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,8 +17,9 @@ import (
 )
 
 type TestURLStore interface {
-	ShortenURL(originalURL string) (string, error)
-	RedirectURL(shortURL string) (string, error)
+	ShortenURL(ctx context.Context, originalURL string) (string, error)
+	RedirectURL(ctx context.Context, shortURL string) (string, error)
+	Ping(ctx context.Context) error
 }
 
 type testStorage struct {
@@ -30,18 +32,22 @@ func newTestStorage() TestURLStore {
 	}
 }
 
-func (t *testStorage) ShortenURL(originalURL string) (string, error) {
+func (t *testStorage) ShortenURL(_ context.Context, originalURL string) (string, error) {
 	shortURL := utils.GenerateShortURL(originalURL)
 	t.URLMap[shortURL] = originalURL
 	return shortURL, nil
 }
 
-func (t *testStorage) RedirectURL(shortURL string) (string, error) {
+func (t *testStorage) RedirectURL(_ context.Context, shortURL string) (string, error) {
 	url, ok := t.URLMap[shortURL]
 	if !ok {
 		return "", errors.New("url not found")
 	}
 	return url, nil
+}
+
+func (t *testStorage) Ping(_ context.Context) error {
+	return nil
 }
 
 func TestShortenURL(t *testing.T) {
@@ -95,11 +101,13 @@ func TestRedirectURL(t *testing.T) {
 	testHandler2 := NewHandlerURL(testStorage2, testCfg.BaseURL)
 
 	r := chi.NewRouter()
-	r.HandleFunc("/{id}", testHandler2.RedirectURL)
+	r.HandleFunc("/{id}", func(rw http.ResponseWriter, r *http.Request) {
+		testHandler2.RedirectURL(rw, r)
+	})
 
 	testURL := "https://practicum.yandex.ru/"
 	shortURL := utils.GenerateShortURL(testURL)
-	testStorage2.ShortenURL(testURL)
+	testStorage2.ShortenURL(context.TODO(), testURL)
 
 	tests := []struct {
 		name             string
