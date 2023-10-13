@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
@@ -42,15 +41,9 @@ func Run(cfg *config.Config) error {
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging)
 
-	r.Post("/", gzip.GzipMiddleware(func(rw http.ResponseWriter, r *http.Request) {
-		h.ShortenURL(context.Background(), rw, r)
-	}))
-	r.Get("/{id}", gzip.GzipMiddleware(func(rw http.ResponseWriter, r *http.Request) {
-		h.RedirectURL(context.Background(), rw, r)
-	}))
-	r.Post("/api/shorten", gzip.GzipMiddleware(func(rw http.ResponseWriter, r *http.Request) {
-		h.JSONShortenURL(context.Background(), rw, r)
-	}))
+	r.Post("/", gzip.GzipMiddleware(h.ShortenURL))
+	r.Get("/{id}", gzip.GzipMiddleware(h.RedirectURL))
+	r.Post("/api/shorten", gzip.GzipMiddleware(h.JSONShortenURL))
 	r.Get("/ping", func(rw http.ResponseWriter, r *http.Request) {
 		h.Ping(rw, r)
 	})

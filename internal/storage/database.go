@@ -52,15 +52,15 @@ func (s *Database) ShortenURL(ctx context.Context, originalURL string) (string, 
 }
 
 func (s *Database) RedirectURL(ctx context.Context, shortURL string) (string, error) {
-	var original_url string
+	var originalURL string
 	c, cancel := context.WithTimeout(ctx, time.Second*2)
 	defer cancel()
 
 	row := s.db.QueryRowContext(c, `SELECT original_url FROM shortener WHERE short_url = $1`, shortURL)
-	if err := row.Scan(&original_url); err != nil {
+	if err := row.Scan(&originalURL); err != nil {
 		return "", nil
 	}
-	return original_url, nil
+	return originalURL, nil
 }
 
 func (s *Database) Ping(ctx context.Context) error {

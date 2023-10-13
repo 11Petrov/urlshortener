@@ -82,7 +82,7 @@ func TestShortenURL(t *testing.T) {
 			body := strings.NewReader(tt.requestBody)
 			request := httptest.NewRequest("POST", "/shorten", body)
 			w := httptest.NewRecorder()
-			testHandler1.ShortenURL(context.TODO(), w, request)
+			testHandler1.ShortenURL(w, request)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
@@ -102,7 +102,7 @@ func TestRedirectURL(t *testing.T) {
 
 	r := chi.NewRouter()
 	r.HandleFunc("/{id}", func(rw http.ResponseWriter, r *http.Request) {
-		testHandler2.RedirectURL(context.Background(), rw, r)
+		testHandler2.RedirectURL(rw, r)
 	})
 
 	testURL := "https://practicum.yandex.ru/"
@@ -175,7 +175,7 @@ func TestJSONShortenURL(t *testing.T) {
 			fmt.Println(body)
 			request := httptest.NewRequest("POST", "/api/shorten", body)
 			w := httptest.NewRecorder()
-			testHandler3.JSONShortenURL(request.Context(), w, request)
+			testHandler3.JSONShortenURL(w, request)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
