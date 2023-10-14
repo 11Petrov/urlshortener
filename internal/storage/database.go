@@ -70,3 +70,18 @@ func (s *Database) Ping(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (s *Database) BatchShortenURL(ctx context.Context, originalURL string) (string, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	shortURL := utils.GenerateShortURL(originalURL)
+	_, err = tx.ExecContext(ctx, "INSERT INTO shortener(short_url, original_url) VALUES($1, $2)", shortURL, originalURL)
+	if err != nil {
+		return "", err
+	}
+	return shortURL, tx.Commit()
+}

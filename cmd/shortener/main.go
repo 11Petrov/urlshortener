@@ -47,9 +47,11 @@ func Run(cfg *config.Config) error {
 	r.Get("/ping", func(rw http.ResponseWriter, r *http.Request) {
 		h.Ping(rw, r)
 	})
+	r.Post("/api/shorten/batch", gzip.GzipMiddleware(h.BatchShortenURL))
 	logger.Sugar.Infow(
 		"Running server",
 		"address", cfg.ServerAddress,
+		"DSN", cfg.DatabaseAddress,
 	)
 	return http.ListenAndServe(cfg.ServerAddress, r)
 }

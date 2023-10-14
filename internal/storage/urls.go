@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 
 	"github.com/11Petrov/urlshortener/internal/utils"
@@ -16,6 +15,7 @@ type URLStore interface {
 	ShortenURL(ctx context.Context, originalURL string) (string, error)
 	RedirectURL(ctx context.Context, shortURL string) (string, error)
 	Ping(ctx context.Context) error
+	BatchShortenURL(ctx context.Context, originalURL string) (string, error)
 }
 
 // Event представляет информацию о сокращенном URL для сохранения в файле
@@ -36,7 +36,6 @@ type repoURL struct {
 func NewRepoURL(filename string) (URLStore, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
@@ -45,7 +44,6 @@ func NewRepoURL(filename string) (URLStore, error) {
 	for {
 		var event Event
 		if err := decoder.Decode(&event); err != nil {
-			fmt.Println(err)
 			break
 		}
 		URLMap[event.ShortURL] = event.OriginalURL
@@ -70,13 +68,11 @@ func (r *repoURL) ShortenURL(_ context.Context, originalURL string) (string, err
 	}
 	data, err := json.Marshal(&event)
 	if err != nil {
-		fmt.Println(err)
 		return "", err
 	}
 
 	_, err = r.file.Write(append(data, '\n'))
 	if err != nil {
-		fmt.Println(err)
 		return "", err
 	}
 	r.file.Sync()
@@ -94,4 +90,8 @@ func (r *repoURL) RedirectURL(_ context.Context, shortURL string) (string, error
 
 func (r *repoURL) Ping(_ context.Context) error {
 	return nil
+}
+
+func (r *repoURL) BatchShortenURL(_ context.Context, originalURL string) (string, error) {
+	return "", nil
 }

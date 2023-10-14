@@ -20,6 +20,7 @@ type TestURLStore interface {
 	ShortenURL(ctx context.Context, originalURL string) (string, error)
 	RedirectURL(ctx context.Context, shortURL string) (string, error)
 	Ping(ctx context.Context) error
+	BatchShortenURL(ctx context.Context, originalURL string) (string, error)
 }
 
 type testStorage struct {
@@ -48,6 +49,10 @@ func (t *testStorage) RedirectURL(_ context.Context, shortURL string) (string, e
 
 func (t *testStorage) Ping(_ context.Context) error {
 	return nil
+}
+
+func (t *testStorage) BatchShortenURL(ctx context.Context, originalURL string) (string, error) {
+	return "", nil
 }
 
 func TestShortenURL(t *testing.T) {

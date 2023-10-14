@@ -3,10 +3,11 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/11Petrov/urlshortener/internal/models"
 )
 
 // handlerURLStore определяет приватный интерфейс для хранилища URL
@@ -14,20 +15,13 @@ type handlerURLStore interface {
 	ShortenURL(ctx context.Context, originalURL string) (string, error)
 	RedirectURL(ctx context.Context, shortURL string) (string, error)
 	Ping(ctx context.Context) error
+	BatchShortenURL(ctx context.Context, originalURL string) (string, error)
 }
 
 // URLHandler обрабатывает HTTP-запросы
 type HandlerURL struct {
 	storeURL handlerURLStore
 	baseURL  string
-}
-
-type JSONShortenURLRequest struct {
-	URL string `json:"url"`
-}
-
-type JSONShortenURLResponse struct {
-	Result string `json:"result"`
 }
 
 // NewURLHandler создает новый экземпляр URLHandler
@@ -85,7 +79,7 @@ func (h *HandlerURL) RedirectURL(rw http.ResponseWriter, r *http.Request) {
 
 // JSONShortenURL обрабатывает запросы на сокращение URL и возвращает JSON-ответ
 func (h *HandlerURL) JSONShortenURL(rw http.ResponseWriter, r *http.Request) {
-	var req JSONShortenURLRequest
+	var req models.JSONShortenURLRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(rw, "Invalid decode json", http.StatusBadRequest)
@@ -95,9 +89,7 @@ func (h *HandlerURL) JSONShortenURL(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	fmt.Println(shortURL)
-	resp := JSONShortenURLResponse{Result: h.baseURL + "/" + shortURL}
-	fmt.Println(resp)
+	resp := models.JSONShortenURLResponse{Result: h.baseURL + "/" + shortURL}
 
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusCreated)
@@ -116,4 +108,36 @@ func (h *HandlerURL) Ping(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	rw.WriteHeader(http.StatusOK)
+}
+
+func (h *HandlerURL) BatchShortenURL(rw http.ResponseWriter, r *http.Request) {
+	var arrRequest []models.BatchRequest
+	var arrResponse []models.BatchResponse
+
+	if err := json.NewDecoder(r.Body).Decode(&arrRequest); err != nil {
+		http.Error(rw, "Invalid decode json", http.StatusBadRequest)
+		return
+	}
+
+	for _, val := range arrRequest {
+		shortURL, err := h.storeURL.BatchShortenURL(r.Context(), val.OriginalURL)
+		if err != nil {
+			return
+		}
+		url := h.baseURL + "/" + shortURL
+		resp := models.BatchResponse{
+			CorrelationID: val.CorrelationID,
+			ShortURL:      url,
+		}
+
+		arrResponse = append(arrResponse, resp)
+	}
+
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(http.StatusCreated)
+
+	if err := json.NewEncoder(rw).Encode(&arrResponse); err != nil {
+		http.Error(rw, "Invalid encode json", http.StatusBadRequest)
+		return
+	}
 }
