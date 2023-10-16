@@ -3,10 +3,13 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/11Petrov/urlshortener/internal/utils"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type Database struct {
@@ -31,7 +34,11 @@ func NewDBStore(databaseAddress string) (*Database, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	uniqueIndex := "CREATE UNIQUE INDEX IF NOT EXISTS original_url_unique ON shortener(original_url)"
+	_, err = db.Exec(uniqueIndex)
+	if err != nil {
+		return nil, err
+	}
 	d := &Database{
 		db: db,
 	}
@@ -45,6 +52,12 @@ func (s *Database) ShortenURL(ctx context.Context, originalURL string) (string, 
 	defer cancel()
 	_, err := s.db.ExecContext(c, `INSERT INTO shortener(short_url, original_url) VALUES($1, $2)`, shortURL, originalURL)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			var res string
+			s.db.QueryRowContext(c, `SELECT short_url FROM shortener WHERE original_url = $1`, originalURL).Scan(&res)
+			return res, err
+		}
 		return "", err
 	}
 

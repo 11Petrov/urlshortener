@@ -3,11 +3,14 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/11Petrov/urlshortener/internal/models"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // handlerURLStore определяет приватный интерфейс для хранилища URL
@@ -50,7 +53,16 @@ func (h *HandlerURL) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	originalURL := string(body)
 	shortURL, err := h.storeURL.ShortenURL(r.Context(), originalURL)
 	if err != nil {
-		return
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			rw.WriteHeader(http.StatusConflict)
+			responseURL := h.baseURL + "/" + shortURL
+			rw.Write([]byte(responseURL))
+			return
+		} else {
+			rw.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
 	responseURL := h.baseURL + "/" + shortURL
 
@@ -87,16 +99,29 @@ func (h *HandlerURL) JSONShortenURL(rw http.ResponseWriter, r *http.Request) {
 	}
 	shortURL, err := h.storeURL.ShortenURL(r.Context(), req.URL)
 	if err != nil {
-		return
-	}
-	resp := models.JSONShortenURLResponse{Result: h.baseURL + "/" + shortURL}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			rw.Header().Set("Content-Type", "application/json")
+			rw.WriteHeader(http.StatusConflict)
+			resp := models.JSONShortenURLResponse{Result: h.baseURL + "/" + shortURL}
+			if err := json.NewEncoder(rw).Encode(resp); err != nil {
+				http.Error(rw, "Invalid encode json", http.StatusBadRequest)
+				return
+			}
+		} else {
+			rw.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	} else {
+		resp := models.JSONShortenURLResponse{Result: h.baseURL + "/" + shortURL}
 
-	rw.Header().Set("Content-Type", "application/json")
-	rw.WriteHeader(http.StatusCreated)
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusCreated)
 
-	if err := json.NewEncoder(rw).Encode(resp); err != nil {
-		http.Error(rw, "Invalid encode json", http.StatusBadRequest)
-		return
+		if err := json.NewEncoder(rw).Encode(resp); err != nil {
+			http.Error(rw, "Invalid encode json", http.StatusBadRequest)
+			return
+		}
 	}
 }
 
