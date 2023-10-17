@@ -6,8 +6,10 @@ import (
 	"errors"
 	"os"
 
+	"github.com/11Petrov/urlshortener/cmd/config"
 	"github.com/11Petrov/urlshortener/internal/utils"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // URLStore определяет интерфейс для хранилища URL
@@ -30,12 +32,30 @@ type repoURL struct {
 	URLMap  map[string]string
 	file    *os.File
 	encoder *json.Encoder
+	log     zap.SugaredLogger
+}
+
+func NewRepo(cfg *config.Config, log zap.SugaredLogger) URLStore {
+	if cfg.DatabaseAddress != "" {
+		store, err := NewDBStore(cfg.DatabaseAddress, log)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return store
+	} else {
+		store, err := NewRepoURL(cfg.FilePath, log)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return store
+	}
 }
 
 // NewRepoURL создает новый экземпляр RepoURL
-func NewRepoURL(filename string) (URLStore, error) {
+func NewRepoURL(filename string, log zap.SugaredLogger) (URLStore, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
+		log.Errorf("error OpneFile %s", err)
 		return nil, err
 	}
 
@@ -44,6 +64,7 @@ func NewRepoURL(filename string) (URLStore, error) {
 	for {
 		var event Event
 		if err := decoder.Decode(&event); err != nil {
+			log.Errorf("error Decode to event %s", err)
 			break
 		}
 		URLMap[event.ShortURL] = event.OriginalURL
@@ -53,6 +74,7 @@ func NewRepoURL(filename string) (URLStore, error) {
 		URLMap:  URLMap,
 		file:    file,
 		encoder: json.NewEncoder(file),
+		log:     log,
 	}, err
 }
 
@@ -68,11 +90,13 @@ func (r *repoURL) ShortenURL(_ context.Context, originalURL string) (string, err
 	}
 	data, err := json.Marshal(&event)
 	if err != nil {
+		r.log.Errorf("error json.Marshal(&event) %s", err)
 		return "", err
 	}
 
 	_, err = r.file.Write(append(data, '\n'))
 	if err != nil {
+		r.log.Errorf("error Write %s", err)
 		return "", err
 	}
 	r.file.Sync()
@@ -83,6 +107,7 @@ func (r *repoURL) ShortenURL(_ context.Context, originalURL string) (string, err
 func (r *repoURL) RedirectURL(_ context.Context, shortURL string) (string, error) {
 	url, ok := r.URLMap[shortURL]
 	if !ok {
+		r.log.Error("error URLMap[shortURL]")
 		return "", errors.New("url not found")
 	}
 	return url, nil

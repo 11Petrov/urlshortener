@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 type TestURLStore interface {
@@ -59,6 +60,7 @@ func TestShortenURL(t *testing.T) {
 	testCfg := &config.Config{
 		BaseURL: "http://localhost:8081",
 	}
+	log := zap.NewExample()
 	tests := []struct {
 		name                 string
 		requestBody          string
@@ -75,12 +77,12 @@ func TestShortenURL(t *testing.T) {
 			name:                 "Test ShortenURL without body",
 			requestBody:          "",
 			expectedStatus:       http.StatusBadRequest,
-			expectedResponseBody: "Request body is missing\n",
+			expectedResponseBody: "",
 		},
 	}
 
 	testStorage1 := newTestStorage()
-	testHandler1 := NewHandlerURL(testStorage1, testCfg.BaseURL)
+	testHandler1 := NewHandlerURL(testStorage1, testCfg.BaseURL, *log.Sugar())
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -101,9 +103,10 @@ func TestRedirectURL(t *testing.T) {
 	testCfg := &config.Config{
 		BaseURL: "http://localhost:8081",
 	}
+	log := zap.NewExample()
 
 	testStorage2 := newTestStorage()
-	testHandler2 := NewHandlerURL(testStorage2, testCfg.BaseURL)
+	testHandler2 := NewHandlerURL(testStorage2, testCfg.BaseURL, *log.Sugar())
 
 	r := chi.NewRouter()
 	r.HandleFunc("/{id}", func(rw http.ResponseWriter, r *http.Request) {
@@ -152,6 +155,7 @@ func TestJSONShortenURL(t *testing.T) {
 	testCfg := &config.Config{
 		BaseURL: "http://localhost:8081",
 	}
+	log := zap.NewExample()
 	tests := []struct {
 		name                 string
 		requestBody          string
@@ -168,11 +172,11 @@ func TestJSONShortenURL(t *testing.T) {
 			name:                 "Test JSONShortenURL invalid JSON",
 			requestBody:          `invalid JSON`,
 			expectedStatus:       http.StatusBadRequest,
-			expectedResponseBody: "Invalid decode json",
+			expectedResponseBody: "",
 		},
 	}
 	testStorage3 := newTestStorage()
-	testHandler3 := NewHandlerURL(testStorage3, testCfg.BaseURL)
+	testHandler3 := NewHandlerURL(testStorage3, testCfg.BaseURL, *log.Sugar())
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -3,14 +3,13 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/11Petrov/urlshortener/internal/models"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
+	e "github.com/11Petrov/urlshortener/internal/storage/errors"
+	"go.uber.org/zap"
 )
 
 // handlerURLStore определяет приватный интерфейс для хранилища URL
@@ -25,20 +24,23 @@ type handlerURLStore interface {
 type HandlerURL struct {
 	storeURL handlerURLStore
 	baseURL  string
+	log      zap.SugaredLogger
 }
 
 // NewURLHandler создает новый экземпляр URLHandler
-func NewHandlerURL(storeURL handlerURLStore, baseURL string) *HandlerURL {
+func NewHandlerURL(storeURL handlerURLStore, baseURL string, log zap.SugaredLogger) *HandlerURL {
 	return &HandlerURL{
 		storeURL: storeURL,
 		baseURL:  baseURL,
+		log:      log,
 	}
 }
 
 // ShortenURL обрабатывает запросы на сокращение URL
 func (h *HandlerURL) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	if r.ContentLength == 0 {
-		http.Error(rw, "Request body is missing", http.StatusBadRequest)
+		rw.WriteHeader(http.StatusBadRequest)
+		h.log.Error("Request body is missing (ShortenURL)")
 		return
 	}
 
@@ -46,21 +48,23 @@ func (h *HandlerURL) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(rw, "Error reading request", http.StatusBadRequest)
+		rw.WriteHeader(http.StatusBadRequest)
+		h.log.Errorf("Error reading request (ShortenURL) %s", err)
 		return
 	}
 
 	originalURL := string(body)
 	shortURL, err := h.storeURL.ShortenURL(r.Context(), originalURL)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+		if err == e.ErrUnique {
 			rw.WriteHeader(http.StatusConflict)
 			responseURL := h.baseURL + "/" + shortURL
 			rw.Write([]byte(responseURL))
+			h.log.Errorf("URL already in database (ShortenURL) %s", err)
 			return
 		} else {
 			rw.WriteHeader(http.StatusBadRequest)
+			h.log.Errorf("ShortenURL error %s", err)
 			return
 		}
 	}
@@ -76,13 +80,15 @@ func (h *HandlerURL) RedirectURL(rw http.ResponseWriter, r *http.Request) {
 	path := strings.Split(r.URL.Path, "/")
 	shortURL := path[1]
 	if len(shortURL) == 0 {
-		http.Error(rw, "Empty URL parameter", http.StatusBadRequest)
+		rw.WriteHeader(http.StatusBadRequest)
+		h.log.Error("Empty URL parameter (RedirectURL)")
 		return
 	}
 
 	url, err := h.storeURL.RedirectURL(r.Context(), shortURL)
 	if err != nil {
-		http.Error(rw, "Url not found", http.StatusBadRequest)
+		rw.WriteHeader(http.StatusBadRequest)
+		h.log.Errorf("Url not found (RedirectURL) %s", err)
 		return
 	}
 	rw.Header().Set("Location", url)
@@ -94,18 +100,20 @@ func (h *HandlerURL) JSONShortenURL(rw http.ResponseWriter, r *http.Request) {
 	var req models.JSONShortenURLRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(rw, "Invalid decode json", http.StatusBadRequest)
+		rw.WriteHeader(http.StatusBadRequest)
+		h.log.Errorf("Invalid decode json (JSONShortenURL) %s", err)
 		return
 	}
 	shortURL, err := h.storeURL.ShortenURL(r.Context(), req.URL)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+		if err == e.ErrUnique {
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(http.StatusConflict)
 			resp := models.JSONShortenURLResponse{Result: h.baseURL + "/" + shortURL}
+			h.log.Errorf("URL already in database (JSONShortenURL) %s", err)
 			if err := json.NewEncoder(rw).Encode(resp); err != nil {
-				http.Error(rw, "Invalid encode json", http.StatusBadRequest)
+				rw.WriteHeader(http.StatusBadRequest)
+				h.log.Errorf("Invalid encode json (JSONShortenURL) %s", err)
 				return
 			}
 		} else {
@@ -119,7 +127,8 @@ func (h *HandlerURL) JSONShortenURL(rw http.ResponseWriter, r *http.Request) {
 		rw.WriteHeader(http.StatusCreated)
 
 		if err := json.NewEncoder(rw).Encode(resp); err != nil {
-			http.Error(rw, "Invalid encode json", http.StatusBadRequest)
+			rw.WriteHeader(http.StatusBadRequest)
+			h.log.Errorf("Invalid encode json (JSONShortenURL) %s", err)
 			return
 		}
 	}
@@ -128,7 +137,8 @@ func (h *HandlerURL) JSONShortenURL(rw http.ResponseWriter, r *http.Request) {
 func (h *HandlerURL) Ping(rw http.ResponseWriter, r *http.Request) {
 	err := h.storeURL.Ping(r.Context())
 	if err != nil {
-		http.Error(rw, "Database connection failed", http.StatusInternalServerError)
+		rw.WriteHeader(http.StatusBadRequest)
+		h.log.Errorf("Database connection failed (Ping) %s", err)
 		return
 	}
 
@@ -140,13 +150,15 @@ func (h *HandlerURL) BatchShortenURL(rw http.ResponseWriter, r *http.Request) {
 	var arrResponse []models.BatchResponse
 
 	if err := json.NewDecoder(r.Body).Decode(&arrRequest); err != nil {
-		http.Error(rw, "Invalid decode json", http.StatusBadRequest)
+		rw.WriteHeader(http.StatusBadRequest)
+		h.log.Errorf("Invalid decode json (BatchShortenURL) %s", err)
 		return
 	}
 
 	for _, val := range arrRequest {
 		shortURL, err := h.storeURL.BatchShortenURL(r.Context(), val.OriginalURL)
 		if err != nil {
+			h.log.Errorf("BatchShortenURL error %s", err)
 			return
 		}
 		url := h.baseURL + "/" + shortURL
@@ -162,7 +174,8 @@ func (h *HandlerURL) BatchShortenURL(rw http.ResponseWriter, r *http.Request) {
 	rw.WriteHeader(http.StatusCreated)
 
 	if err := json.NewEncoder(rw).Encode(&arrResponse); err != nil {
-		http.Error(rw, "Invalid encode json", http.StatusBadRequest)
+		rw.WriteHeader(http.StatusBadRequest)
+		h.log.Errorf("Invalid encode json (BatchShortenURL) %s", err)
 		return
 	}
 }
