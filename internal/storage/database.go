@@ -32,7 +32,8 @@ func NewDBStore(databaseAddress string, log zap.SugaredLogger) (*Database, error
 		return nil, err
 	}
 
-	err = goose.Up(db, "../migrations")
+	log.Info("Start migrating database")
+	err = goose.Up(db, ".")
 	if err != nil {
 		log.Errorf("error goose.Up %s", err)
 		return nil, err

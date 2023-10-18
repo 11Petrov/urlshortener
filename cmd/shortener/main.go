@@ -7,6 +7,7 @@ import (
 	"github.com/11Petrov/urlshortener/internal/gzip"
 	"github.com/11Petrov/urlshortener/internal/handlers"
 	"github.com/11Petrov/urlshortener/internal/logger"
+	_ "github.com/11Petrov/urlshortener/internal/migrations"
 	"github.com/11Petrov/urlshortener/internal/storage"
 	"go.uber.org/zap"
 
