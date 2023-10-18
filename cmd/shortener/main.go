@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
@@ -9,7 +10,6 @@ import (
 	"github.com/11Petrov/urlshortener/internal/logger"
 	_ "github.com/11Petrov/urlshortener/internal/migrations"
 	"github.com/11Petrov/urlshortener/internal/storage"
-	"go.uber.org/zap"
 
 	"github.com/go-chi/chi"
 
@@ -20,14 +20,17 @@ func main() {
 	cfg := config.NewConfig()
 	log := logger.NewLogger()
 
-	if err := Run(cfg, log); err != nil {
+	ctx := logger.ContextWithLogger(context.Background(), &log)
+
+	if err := Run(cfg, ctx); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func Run(cfg *config.Config, log zap.SugaredLogger) error {
-	storeURL := storage.NewRepo(cfg, log)
-	h := handlers.NewHandlerURL(storeURL, cfg.BaseURL, log)
+func Run(cfg *config.Config, ctx context.Context) error {
+	log := logger.LoggerFromContext(ctx)
+	storeURL := storage.NewRepo(cfg, ctx)
+	h := handlers.NewHandlerURL(storeURL, cfg.BaseURL)
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging)
 

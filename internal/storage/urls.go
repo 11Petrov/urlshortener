@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
+	"github.com/11Petrov/urlshortener/internal/logger"
 	"github.com/11Petrov/urlshortener/internal/utils"
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 // URLStore определяет интерфейс для хранилища URL
@@ -32,18 +32,18 @@ type repoURL struct {
 	URLMap  map[string]string
 	file    *os.File
 	encoder *json.Encoder
-	log     zap.SugaredLogger
 }
 
-func NewRepo(cfg *config.Config, log zap.SugaredLogger) URLStore {
+func NewRepo(cfg *config.Config, ctx context.Context) URLStore {
+	log := logger.LoggerFromContext(ctx)
 	if cfg.DatabaseAddress != "" {
-		store, err := NewDBStore(cfg.DatabaseAddress, log)
+		store, err := NewDBStore(cfg.DatabaseAddress, ctx)
 		if err != nil {
 			log.Fatal(err)
 		}
 		return store
 	} else {
-		store, err := NewRepoURL(cfg.FilePath, log)
+		store, err := NewRepoURL(cfg.FilePath, ctx)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -52,7 +52,8 @@ func NewRepo(cfg *config.Config, log zap.SugaredLogger) URLStore {
 }
 
 // NewRepoURL создает новый экземпляр RepoURL
-func NewRepoURL(filename string, log zap.SugaredLogger) (URLStore, error) {
+func NewRepoURL(filename string, ctx context.Context) (URLStore, error) {
+	log := logger.LoggerFromContext(ctx)
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		log.Errorf("error OpneFile %s", err)
@@ -74,12 +75,12 @@ func NewRepoURL(filename string, log zap.SugaredLogger) (URLStore, error) {
 		URLMap:  URLMap,
 		file:    file,
 		encoder: json.NewEncoder(file),
-		log:     log,
 	}, err
 }
 
 // ShortenURL сокращает оригинальный URL и сохраняет его в хранилище, возвращая сокращенный URL
-func (r *repoURL) ShortenURL(_ context.Context, originalURL string) (string, error) {
+func (r *repoURL) ShortenURL(ctx context.Context, originalURL string) (string, error) {
+	log := logger.LoggerFromContext(ctx)
 	shortURL := utils.GenerateShortURL(originalURL)
 	r.URLMap[shortURL] = originalURL
 
@@ -90,13 +91,13 @@ func (r *repoURL) ShortenURL(_ context.Context, originalURL string) (string, err
 	}
 	data, err := json.Marshal(&event)
 	if err != nil {
-		r.log.Errorf("error json.Marshal(&event) %s", err)
+		log.Errorf("error json.Marshal(&event) %s", err)
 		return "", err
 	}
 
 	_, err = r.file.Write(append(data, '\n'))
 	if err != nil {
-		r.log.Errorf("error Write %s", err)
+		log.Errorf("error Write %s", err)
 		return "", err
 	}
 	r.file.Sync()
@@ -104,19 +105,22 @@ func (r *repoURL) ShortenURL(_ context.Context, originalURL string) (string, err
 }
 
 // RedirectURL возвращает оригинальный URL
-func (r *repoURL) RedirectURL(_ context.Context, shortURL string) (string, error) {
+func (r *repoURL) RedirectURL(ctx context.Context, shortURL string) (string, error) {
+	log := logger.LoggerFromContext(ctx)
 	url, ok := r.URLMap[shortURL]
 	if !ok {
-		r.log.Error("error URLMap[shortURL]")
+		log.Error("error URLMap[shortURL]")
 		return "", errors.New("url not found")
 	}
 	return url, nil
 }
 
-func (r *repoURL) Ping(_ context.Context) error {
-	return nil
+// BatchShortenURL implements URLStore.
+func (*repoURL) BatchShortenURL(ctx context.Context, originalURL string) (string, error) {
+	panic("unimplemented")
 }
 
-func (r *repoURL) BatchShortenURL(_ context.Context, originalURL string) (string, error) {
-	return "", nil
+// Ping implements URLStore.
+func (*repoURL) Ping(ctx context.Context) error {
+	panic("unimplemented")
 }
