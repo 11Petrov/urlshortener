@@ -85,8 +85,8 @@ func TestShortenURL(t *testing.T) {
 	testStorage1 := newTestStorage()
 	testHandler1 := NewHandlerURL(testStorage1, testCfg.BaseURL)
 
-	test_log1 := logger.NewLogger()
-	ctxLogger := logger.ContextWithLogger(context.Background(), &test_log1)
+	testlog1 := logger.NewLogger()
+	ctxLogger := logger.ContextWithLogger(context.Background(), &testlog1)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -113,8 +113,8 @@ func TestRedirectURL(t *testing.T) {
 	testStorage2 := newTestStorage()
 	testHandler2 := NewHandlerURL(testStorage2, testCfg.BaseURL)
 
-	test_log2 := logger.NewLogger()
-	ctxLogger := logger.ContextWithLogger(context.Background(), &test_log2)
+	testlog2 := logger.NewLogger()
+	ctxLogger := logger.ContextWithLogger(context.Background(), &testlog2)
 
 	r := chi.NewRouter()
 	r.HandleFunc("/{id}", func(rw http.ResponseWriter, r *http.Request) {
@@ -186,8 +186,8 @@ func TestJSONShortenURL(t *testing.T) {
 	testStorage3 := newTestStorage()
 	testHandler3 := NewHandlerURL(testStorage3, testCfg.BaseURL)
 
-	test_log2 := logger.NewLogger()
-	ctxLogger := logger.ContextWithLogger(context.Background(), &test_log2)
+	testlog3 := logger.NewLogger()
+	ctxLogger := logger.ContextWithLogger(context.Background(), &testlog3)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
