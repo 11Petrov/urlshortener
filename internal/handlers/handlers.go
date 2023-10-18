@@ -9,7 +9,7 @@ import (
 
 	"github.com/11Petrov/urlshortener/internal/logger"
 	"github.com/11Petrov/urlshortener/internal/models"
-	e "github.com/11Petrov/urlshortener/internal/storage/errors"
+	storageErrors "github.com/11Petrov/urlshortener/internal/storage/errors"
 )
 
 // handlerURLStore определяет приватный интерфейс для хранилища URL
@@ -55,7 +55,7 @@ func (h *HandlerURL) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 	originalURL := string(body)
 	shortURL, err := h.storeURL.ShortenURL(r.Context(), originalURL)
 	if err != nil {
-		if err == e.ErrUnique {
+		if err == storageErrors.ErrUnique {
 			rw.WriteHeader(http.StatusConflict)
 			responseURL := h.baseURL + "/" + shortURL
 			rw.Write([]byte(responseURL))
@@ -108,7 +108,7 @@ func (h *HandlerURL) JSONShortenURL(rw http.ResponseWriter, r *http.Request) {
 	}
 	shortURL, err := h.storeURL.ShortenURL(r.Context(), req.URL)
 	if err != nil {
-		if err == e.ErrUnique {
+		if err == storageErrors.ErrUnique {
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(http.StatusConflict)
 			resp := models.JSONShortenURLResponse{Result: h.baseURL + "/" + shortURL}

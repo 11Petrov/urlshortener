@@ -115,12 +115,14 @@ func (r *repoURL) RedirectURL(ctx context.Context, shortURL string) (string, err
 	return url, nil
 }
 
-// BatchShortenURL implements URLStore.
-func (*repoURL) BatchShortenURL(ctx context.Context, originalURL string) (string, error) {
-	panic("unimplemented")
+func (r *repoURL) BatchShortenURL(ctx context.Context, originalURL string) (string, error) {
+	log := logger.LoggerFromContext(ctx)
+	log.Info("BatchShortenURL function was called")
+	return "", nil
 }
 
-// Ping implements URLStore.
-func (*repoURL) Ping(ctx context.Context) error {
-	panic("unimplemented")
+func (r *repoURL) Ping(ctx context.Context) error {
+	log := logger.LoggerFromContext(ctx)
+	log.Info("Ping function was called")
+	return nil
 }
