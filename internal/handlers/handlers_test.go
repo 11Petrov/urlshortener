@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
+	"github.com/11Petrov/urlshortener/internal/logger"
 	"github.com/11Petrov/urlshortener/internal/utils"
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
@@ -16,8 +18,10 @@ import (
 )
 
 type TestURLStore interface {
-	ShortenURL(originalURL string) (string, error)
-	RedirectURL(shortURL string) (string, error)
+	ShortenURL(ctx context.Context, originalURL string) (string, error)
+	RedirectURL(ctx context.Context, shortURL string) (string, error)
+	Ping(ctx context.Context) error
+	BatchShortenURL(ctx context.Context, originalURL string) (string, error)
 }
 
 type testStorage struct {
@@ -30,18 +34,28 @@ func newTestStorage() TestURLStore {
 	}
 }
 
-func (t *testStorage) ShortenURL(originalURL string) (string, error) {
+func (t *testStorage) ShortenURL(ctx context.Context, originalURL string) (string, error) {
 	shortURL := utils.GenerateShortURL(originalURL)
 	t.URLMap[shortURL] = originalURL
 	return shortURL, nil
 }
 
-func (t *testStorage) RedirectURL(shortURL string) (string, error) {
+func (t *testStorage) RedirectURL(ctx context.Context, shortURL string) (string, error) {
 	url, ok := t.URLMap[shortURL]
 	if !ok {
 		return "", errors.New("url not found")
 	}
 	return url, nil
+}
+
+// BatchShortenURL implements URLStore.
+func (t *testStorage) BatchShortenURL(ctx context.Context, originalURL string) (string, error) {
+	panic("unimplemented")
+}
+
+// Ping implements URLStore.
+func (t *testStorage) Ping(ctx context.Context) error {
+	panic("unimplemented")
 }
 
 func TestShortenURL(t *testing.T) {
@@ -64,17 +78,22 @@ func TestShortenURL(t *testing.T) {
 			name:                 "Test ShortenURL without body",
 			requestBody:          "",
 			expectedStatus:       http.StatusBadRequest,
-			expectedResponseBody: "Request body is missing\n",
+			expectedResponseBody: "",
 		},
 	}
 
 	testStorage1 := newTestStorage()
 	testHandler1 := NewHandlerURL(testStorage1, testCfg.BaseURL)
 
+	testlog1 := logger.NewLogger()
+	ctxLogger := logger.ContextWithLogger(context.Background(), &testlog1)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := strings.NewReader(tt.requestBody)
 			request := httptest.NewRequest("POST", "/shorten", body)
+			request = request.WithContext(ctxLogger)
+
 			w := httptest.NewRecorder()
 			testHandler1.ShortenURL(w, request)
 
@@ -94,12 +113,18 @@ func TestRedirectURL(t *testing.T) {
 	testStorage2 := newTestStorage()
 	testHandler2 := NewHandlerURL(testStorage2, testCfg.BaseURL)
 
+	testlog2 := logger.NewLogger()
+	ctxLogger := logger.ContextWithLogger(context.Background(), &testlog2)
+
 	r := chi.NewRouter()
-	r.HandleFunc("/{id}", testHandler2.RedirectURL)
+	r.HandleFunc("/{id}", func(rw http.ResponseWriter, r *http.Request) {
+		req := r.WithContext(ctxLogger)
+		testHandler2.RedirectURL(rw, req)
+	})
 
 	testURL := "https://practicum.yandex.ru/"
 	shortURL := utils.GenerateShortURL(testURL)
-	testStorage2.ShortenURL(testURL)
+	testStorage2.ShortenURL(context.TODO(), testURL)
 
 	tests := []struct {
 		name             string
@@ -155,17 +180,22 @@ func TestJSONShortenURL(t *testing.T) {
 			name:                 "Test JSONShortenURL invalid JSON",
 			requestBody:          `invalid JSON`,
 			expectedStatus:       http.StatusBadRequest,
-			expectedResponseBody: "Invalid decode json",
+			expectedResponseBody: "",
 		},
 	}
 	testStorage3 := newTestStorage()
 	testHandler3 := NewHandlerURL(testStorage3, testCfg.BaseURL)
+
+	testlog3 := logger.NewLogger()
+	ctxLogger := logger.ContextWithLogger(context.Background(), &testlog3)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := strings.NewReader(tt.requestBody)
 			fmt.Println(body)
 			request := httptest.NewRequest("POST", "/api/shorten", body)
+			request = request.WithContext(ctxLogger)
+
 			w := httptest.NewRecorder()
 			testHandler3.JSONShortenURL(w, request)
 

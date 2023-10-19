@@ -1,20 +1,38 @@
 package logger
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"go.uber.org/zap"
 )
 
-var Sugar zap.SugaredLogger
+type ctxLogger struct{}
 
-func init() {
+var sugar zap.SugaredLogger
+
+func NewLogger() zap.SugaredLogger {
 	logger, err := zap.NewProduction()
 	if err != nil {
 		panic(err)
 	}
-	Sugar = *logger.Sugar()
+	defer logger.Sync()
+	sugar = *logger.Sugar()
+	return sugar
+}
+
+// ContextWithLogger adds logger to context
+func ContextWithLogger(ctx context.Context, l *zap.SugaredLogger) context.Context {
+	return context.WithValue(ctx, ctxLogger{}, l)
+}
+
+// LoggerFromContext returns logger from context
+func LoggerFromContext(ctx context.Context) *zap.SugaredLogger {
+	if l, ok := ctx.Value(ctxLogger{}).(*zap.SugaredLogger); ok {
+		return l
+	}
+	return &sugar
 }
 
 type (
@@ -47,6 +65,7 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 func WithLogging(h http.Handler) http.Handler {
 	logFn := func(rw http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+		ctx := ContextWithLogger(r.Context(), &sugar)
 
 		responseData := &responseData{
 			status: 0,
@@ -56,11 +75,11 @@ func WithLogging(h http.Handler) http.Handler {
 			ResponseWriter: rw,
 			responseData:   responseData,
 		}
-		h.ServeHTTP(&lw, r)
+		h.ServeHTTP(&lw, r.WithContext(ctx))
 
 		duration := time.Since(start)
 
-		Sugar.Infoln(
+		sugar.Infoln(
 			"uri", r.RequestURI,
 			"method", r.Method,
 			"status", responseData.status,
