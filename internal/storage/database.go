@@ -120,7 +120,7 @@ func (s *Database) GetUserURLs(ctx context.Context, userID string) ([]models.Eve
 
 	for rows.Next() {
 		var e models.Event
-		if err := rows.Scan(&e.UserID, &e.ShortURL, &e.OriginalURL); err != nil {
+		if err := rows.Scan(&e.ShortURL, &e.OriginalURL); err != nil {
 			return nil, err
 		}
 		events = append(events, e)
