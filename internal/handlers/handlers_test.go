@@ -23,7 +23,7 @@ type TestURLStore interface {
 	RedirectURL(ctx context.Context, userID, shortURL string) (string, error)
 	Ping(ctx context.Context) error
 	BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error)
-	GetUserURLs(ctx context.Context, userID string) ([]models.Event, error)
+	GetUserURLs(ctx context.Context, userID, baseURL string) ([]models.Event, error)
 }
 
 type testStorage struct {
@@ -56,7 +56,7 @@ func (t *testStorage) RedirectURL(ctx context.Context, userID, shortURL string) 
 	return "", errors.New("user not found")
 }
 
-func (t *testStorage) GetUserURLs(ctx context.Context, userID string) ([]models.Event, error) {
+func (t *testStorage) GetUserURLs(ctx context.Context, userID, baseURL string) ([]models.Event, error) {
 	log := logger.LoggerFromContext(ctx)
 
 	urls, ok := t.URLMap[userID]

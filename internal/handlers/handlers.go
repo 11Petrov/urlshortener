@@ -20,7 +20,7 @@ type handlerURLStore interface {
 	RedirectURL(ctx context.Context, userID, shortURL string) (string, error)
 	Ping(ctx context.Context) error
 	BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error)
-	GetUserURLs(ctx context.Context, userID string) ([]models.Event, error)
+	GetUserURLs(ctx context.Context, userID, baseURL string) ([]models.Event, error)
 }
 
 // URLHandler обрабатывает HTTP-запросы
@@ -214,7 +214,7 @@ func (h *HandlerURL) GetUserURLs(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urls, err := h.storeURL.GetUserURLs(r.Context(), userID)
+	urls, err := h.storeURL.GetUserURLs(r.Context(), userID, h.baseURL)
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
 		log.Errorf("GetUserURLs error %s", err)

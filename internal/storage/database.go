@@ -109,7 +109,7 @@ func (s *Database) BatchShortenURL(ctx context.Context, userID, originalURL stri
 	return shortURL, tx.Commit()
 }
 
-func (s *Database) GetUserURLs(ctx context.Context, userID string) ([]models.Event, error) {
+func (s *Database) GetUserURLs(ctx context.Context, userID string, baseURL string) ([]models.Event, error) {
 	var events []models.Event
 
 	rows, err := s.db.QueryContext(ctx, `SELECT short_url, original_url FROM shortener WHERE user_id = $1`, userID)
@@ -123,6 +123,7 @@ func (s *Database) GetUserURLs(ctx context.Context, userID string) ([]models.Eve
 		if err := rows.Scan(&e.ShortURL, &e.OriginalURL); err != nil {
 			return nil, err
 		}
+		e.ShortURL = baseURL + "/" + e.ShortURL
 		events = append(events, e)
 	}
 	if err := rows.Err(); err != nil {
