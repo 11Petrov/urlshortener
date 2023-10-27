@@ -52,7 +52,7 @@ func (s *Database) ShortenURL(ctx context.Context, userID, originalURL string) (
 
 	c, cancel := context.WithTimeout(ctx, time.Second*2)
 	defer cancel()
-	_, err := s.db.ExecContext(c, `INSERT INTO shortener(user_id, short_url, original_url) VALUES($1, $2, $3)`, userID, shortURL, originalURL)
+	_, err := s.db.ExecContext(c, `INSERT INTO shortener(short_url, original_url, user_id) VALUES($1, $2, $3)`, shortURL, originalURL, userID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
@@ -73,7 +73,7 @@ func (s *Database) RedirectURL(ctx context.Context, userID, shortURL string) (st
 	c, cancel := context.WithTimeout(ctx, time.Second*2)
 	defer cancel()
 
-	row := s.db.QueryRowContext(c, `SELECT original_url FROM shortener WHERE short_url = $1 AND user_id = $2`, shortURL, userID)
+	row := s.db.QueryRowContext(c, `SELECT original_url FROM shortener WHERE short_url = $1 `, shortURL)
 	if err := row.Scan(&originalURL); err != nil {
 		log.Errorf("error QueryRowContext %s", err)
 		return "", nil
@@ -101,7 +101,7 @@ func (s *Database) BatchShortenURL(ctx context.Context, userID, originalURL stri
 	defer tx.Rollback()
 
 	shortURL := utils.GenerateShortURL(originalURL)
-	_, err = tx.ExecContext(ctx, "INSERT INTO shortener(user_id, short_url, original_url) VALUES($1, $2, $3)", userID, shortURL, originalURL)
+	_, err = tx.ExecContext(ctx, "INSERT INTO shortener(short_url, original_url, user_id) VALUES($1, $2, $3)", shortURL, originalURL, userID)
 	if err != nil {
 		log.Errorf("error ExecContext %s", err)
 		return "", err
@@ -112,7 +112,7 @@ func (s *Database) BatchShortenURL(ctx context.Context, userID, originalURL stri
 func (s *Database) GetUserURLs(ctx context.Context, userID string) ([]models.Event, error) {
 	var events []models.Event
 
-	rows, err := s.db.QueryContext(ctx, `SELECT user_id, short_url, original_url FROM shortener WHERE user_id = $1`, userID)
+	rows, err := s.db.QueryContext(ctx, `SELECT short_url, original_url FROM shortener WHERE user_id = $1`, userID)
 	if err != nil {
 		return nil, err
 	}
