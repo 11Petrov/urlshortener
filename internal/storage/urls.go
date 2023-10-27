@@ -23,7 +23,7 @@ type URLStore interface {
 
 // RepoURL - структура, реализующая интерфейс URLStore
 type repoURL struct {
-	URLMap  map[string]map[string]string
+	URLMap  map[string]string
 	file    *os.File
 	encoder *json.Encoder
 }
@@ -55,17 +55,14 @@ func NewRepoURL(filename string, ctx context.Context) (URLStore, error) {
 	}
 
 	decoder := json.NewDecoder(file)
-	URLMap := make(map[string]map[string]string)
+	URLMap := make(map[string]string)
 	for {
 		var event models.Event
 		if err := decoder.Decode(&event); err != nil {
 			log.Errorf("error Decode to event %s", err)
 			break
 		}
-		if _, ok := URLMap[event.UserID]; !ok {
-			URLMap[event.UserID] = make(map[string]string)
-		}
-		URLMap[event.UserID][event.ShortURL] = event.OriginalURL
+		URLMap[event.ShortURL] = event.OriginalURL
 	}
 
 	return &repoURL{
@@ -79,11 +76,7 @@ func NewRepoURL(filename string, ctx context.Context) (URLStore, error) {
 func (r *repoURL) ShortenURL(ctx context.Context, userID, originalURL string) (string, error) {
 	log := logger.LoggerFromContext(ctx)
 	shortURL := utils.GenerateShortURL(originalURL)
-	if _, ok := r.URLMap[userID]; !ok {
-		r.URLMap[userID] = make(map[string]string)
-	}
-	r.URLMap[userID][shortURL] = originalURL
-	log.Infof("ShortenURL ----", userID, shortURL, originalURL)
+	r.URLMap[shortURL] = originalURL
 
 	event := models.Event{
 		UserID:      userID,
@@ -108,8 +101,7 @@ func (r *repoURL) ShortenURL(ctx context.Context, userID, originalURL string) (s
 // RedirectURL возвращает оригинальный URL
 func (r *repoURL) RedirectURL(ctx context.Context, userID, shortURL string) (string, error) {
 	log := logger.LoggerFromContext(ctx)
-	url, ok := r.URLMap[userID][shortURL]
-	log.Infof("RedirectURL ------", userID, shortURL, url)
+	url, ok := r.URLMap[shortURL]
 	if !ok {
 		log.Error("error URLMap[shortURL]")
 		return "", errors.New("url not found")
@@ -131,22 +123,6 @@ func (r *repoURL) Ping(ctx context.Context) error {
 
 func (r *repoURL) GetUserURLs(ctx context.Context, userID string) ([]models.Event, error) {
 	log := logger.LoggerFromContext(ctx)
-
-	urls, ok := r.URLMap[userID]
-	if !ok {
-		log.Info("No URLs found for the user")
-		return []models.Event{}, nil
-	}
-
-	events := make([]models.Event, 0, len(urls))
-
-	for shortURL, originalURL := range urls {
-		events = append(events, models.Event{
-			UserID:      userID,
-			ShortURL:    shortURL,
-			OriginalURL: originalURL,
-		})
-	}
-
-	return events, nil
+	log.Info("GetUserURLs was called(urls)")
+	return []models.Event{}, nil
 }
