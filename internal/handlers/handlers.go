@@ -3,10 +3,12 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/11Petrov/urlshortener/internal/auth"
 	"github.com/11Petrov/urlshortener/internal/logger"
 	"github.com/11Petrov/urlshortener/internal/models"
 	storageErrors "github.com/11Petrov/urlshortener/internal/storage/errors"
@@ -14,10 +16,11 @@ import (
 
 // handlerURLStore определяет приватный интерфейс для хранилища URL
 type handlerURLStore interface {
-	ShortenURL(ctx context.Context, originalURL string) (string, error)
-	RedirectURL(ctx context.Context, shortURL string) (string, error)
+	ShortenURL(ctx context.Context, userID, originalURL string) (string, error)
+	RedirectURL(ctx context.Context, userID, shortURL string) (string, error)
 	Ping(ctx context.Context) error
-	BatchShortenURL(ctx context.Context, originalURL string) (string, error)
+	BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error)
+	GetUserURLs(ctx context.Context, userID, baseURL string) ([]models.Event, error)
 }
 
 // URLHandler обрабатывает HTTP-запросы
@@ -52,8 +55,12 @@ func (h *HandlerURL) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID, ok := r.Context().Value(auth.UserIDKey).(string)
+	if !ok {
+		fmt.Println("error userID ShortenURL")
+	}
 	originalURL := string(body)
-	shortURL, err := h.storeURL.ShortenURL(r.Context(), originalURL)
+	shortURL, err := h.storeURL.ShortenURL(r.Context(), userID, originalURL)
 	if err != nil {
 		if err == storageErrors.ErrUnique {
 			rw.WriteHeader(http.StatusConflict)
@@ -86,9 +93,14 @@ func (h *HandlerURL) RedirectURL(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, err := h.storeURL.RedirectURL(r.Context(), shortURL)
+	userID, ok := r.Context().Value(auth.UserIDKey).(string)
+	if !ok {
+		fmt.Println("error userID RedirectURL")
+	}
+	url, err := h.storeURL.RedirectURL(r.Context(), userID, shortURL)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
+		log.Infof(userID)
 		log.Errorf("Url not found (RedirectURL) %s", err)
 		return
 	}
@@ -106,7 +118,12 @@ func (h *HandlerURL) JSONShortenURL(rw http.ResponseWriter, r *http.Request) {
 		log.Errorf("Invalid decode json (JSONShortenURL) %s", err)
 		return
 	}
-	shortURL, err := h.storeURL.ShortenURL(r.Context(), req.URL)
+	userID, ok := r.Context().Value(auth.UserIDKey).(string)
+	if !ok {
+		fmt.Println("error userID JsonShortenURL")
+		return
+	}
+	shortURL, err := h.storeURL.ShortenURL(r.Context(), userID, req.URL)
 	if err != nil {
 		if err == storageErrors.ErrUnique {
 			rw.Header().Set("Content-Type", "application/json")
@@ -160,7 +177,11 @@ func (h *HandlerURL) BatchShortenURL(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, val := range arrRequest {
-		shortURL, err := h.storeURL.BatchShortenURL(r.Context(), val.OriginalURL)
+		userID, ok := r.Context().Value(auth.UserIDKey).(string)
+		if !ok {
+			fmt.Println("error userID BatchShortenURL")
+		}
+		shortURL, err := h.storeURL.BatchShortenURL(r.Context(), userID, val.OriginalURL)
 		if err != nil {
 			log.Errorf("BatchShortenURL error %s", err)
 			return
@@ -180,6 +201,37 @@ func (h *HandlerURL) BatchShortenURL(rw http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(rw).Encode(&arrResponse); err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		log.Errorf("Invalid encode json (BatchShortenURL) %s", err)
+		return
+	}
+}
+
+func (h *HandlerURL) GetUserURLs(rw http.ResponseWriter, r *http.Request) {
+	log := logger.LoggerFromContext(r.Context())
+
+	userID, ok := r.Context().Value(auth.UserIDKey).(string)
+	if !ok {
+		http.Error(rw, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	urls, err := h.storeURL.GetUserURLs(r.Context(), userID, h.baseURL)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		log.Errorf("GetUserURLs error %s", err)
+		return
+	}
+
+	if len(urls) == 0 {
+		rw.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(rw).Encode(urls); err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		log.Errorf("Invalid encode json (GetUserUrls) %s", err)
 		return
 	}
 }

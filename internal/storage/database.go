@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/11Petrov/urlshortener/internal/logger"
-	e "github.com/11Petrov/urlshortener/internal/storage/errors"
+	"github.com/11Petrov/urlshortener/internal/models"
+	storageErrors "github.com/11Petrov/urlshortener/internal/storage/errors"
 	"github.com/11Petrov/urlshortener/internal/utils"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -45,19 +46,19 @@ func NewDBStore(databaseAddress string, ctx context.Context) (*Database, error) 
 	return d, nil
 }
 
-func (s *Database) ShortenURL(ctx context.Context, originalURL string) (string, error) {
+func (s *Database) ShortenURL(ctx context.Context, userID, originalURL string) (string, error) {
 	log := logger.LoggerFromContext(ctx)
 	shortURL := utils.GenerateShortURL(originalURL)
 
 	c, cancel := context.WithTimeout(ctx, time.Second*2)
 	defer cancel()
-	_, err := s.db.ExecContext(c, `INSERT INTO shortener(short_url, original_url) VALUES($1, $2)`, shortURL, originalURL)
+	_, err := s.db.ExecContext(c, `INSERT INTO shortener(short_url, original_url, user_id) VALUES($1, $2, $3)`, shortURL, originalURL, userID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 			var res string
 			s.db.QueryRowContext(c, `SELECT short_url FROM shortener WHERE original_url = $1`, originalURL).Scan(&res)
-			return res, e.ErrUnique
+			return res, storageErrors.ErrUnique
 		}
 		log.Errorf("error ExecContext %s", err)
 		return "", err
@@ -66,13 +67,13 @@ func (s *Database) ShortenURL(ctx context.Context, originalURL string) (string, 
 	return shortURL, err
 }
 
-func (s *Database) RedirectURL(ctx context.Context, shortURL string) (string, error) {
+func (s *Database) RedirectURL(ctx context.Context, userID, shortURL string) (string, error) {
 	var originalURL string
 	log := logger.LoggerFromContext(ctx)
 	c, cancel := context.WithTimeout(ctx, time.Second*2)
 	defer cancel()
 
-	row := s.db.QueryRowContext(c, `SELECT original_url FROM shortener WHERE short_url = $1`, shortURL)
+	row := s.db.QueryRowContext(c, `SELECT original_url FROM shortener WHERE short_url = $1 `, shortURL)
 	if err := row.Scan(&originalURL); err != nil {
 		log.Errorf("error QueryRowContext %s", err)
 		return "", nil
@@ -90,7 +91,7 @@ func (s *Database) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (s *Database) BatchShortenURL(ctx context.Context, originalURL string) (string, error) {
+func (s *Database) BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error) {
 	log := logger.LoggerFromContext(ctx)
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -100,10 +101,33 @@ func (s *Database) BatchShortenURL(ctx context.Context, originalURL string) (str
 	defer tx.Rollback()
 
 	shortURL := utils.GenerateShortURL(originalURL)
-	_, err = tx.ExecContext(ctx, "INSERT INTO shortener(short_url, original_url) VALUES($1, $2)", shortURL, originalURL)
+	_, err = tx.ExecContext(ctx, "INSERT INTO shortener(short_url, original_url, user_id) VALUES($1, $2, $3)", shortURL, originalURL, userID)
 	if err != nil {
 		log.Errorf("error ExecContext %s", err)
 		return "", err
 	}
 	return shortURL, tx.Commit()
+}
+
+func (s *Database) GetUserURLs(ctx context.Context, userID string, baseURL string) ([]models.Event, error) {
+	var events []models.Event
+
+	rows, err := s.db.QueryContext(ctx, `SELECT short_url, original_url FROM shortener WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var e models.Event
+		if err := rows.Scan(&e.ShortURL, &e.OriginalURL); err != nil {
+			return nil, err
+		}
+		e.ShortURL = baseURL + "/" + e.ShortURL
+		events = append(events, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return events, nil
 }

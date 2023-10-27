@@ -22,7 +22,9 @@ func upShortener(ctx context.Context, tx *sql.Tx) error {
 		original_url TEXT NOT NULL
 	);
 	
-	CREATE UNIQUE INDEX IF NOT EXISTS original_url_unique ON shortener(original_url);
+	ALTER TABLE shortener ADD COLUMN IF NOT EXISTS user_id VARCHAR; 
+	
+    CREATE UNIQUE INDEX IF NOT EXISTS original_url_unique ON shortener(original_url);
 	`
 	_, err := tx.ExecContext(ctrl, query)
 	if err != nil {
