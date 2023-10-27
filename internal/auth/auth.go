@@ -34,7 +34,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			if err != nil {
 				fmt.Println("AuthMiddleware BuildJWTString err = ", err)
 			}
-		} else if userID, err = GetUserId(cookie.Value); err != nil {
+		} else if userID, err = GetUserID(cookie.Value); err != nil {
 			userID := uuid.New().String()
 			tokenString, err = BuildJWTString(userID)
 			if err != nil {
@@ -73,7 +73,7 @@ func BuildJWTString(userID string) (string, error) {
 	return tokenString, nil
 }
 
-func GetUserId(tokenString string) (string, error) {
+func GetUserID(tokenString string) (string, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims,
 		func(t *jwt.Token) (interface{}, error) {

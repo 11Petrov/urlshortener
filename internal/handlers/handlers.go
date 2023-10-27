@@ -100,6 +100,7 @@ func (h *HandlerURL) RedirectURL(rw http.ResponseWriter, r *http.Request) {
 	url, err := h.storeURL.RedirectURL(r.Context(), userID, shortURL)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
+		log.Infof(userID)
 		log.Errorf("Url not found (RedirectURL) %s", err)
 		return
 	}

@@ -83,6 +83,7 @@ func (r *repoURL) ShortenURL(ctx context.Context, userID, originalURL string) (s
 		r.URLMap[userID] = make(map[string]string)
 	}
 	r.URLMap[userID][shortURL] = originalURL
+	log.Infof("ShortenURL ----", userID, shortURL, originalURL)
 
 	event := models.Event{
 		UserID:      userID,
@@ -108,6 +109,7 @@ func (r *repoURL) ShortenURL(ctx context.Context, userID, originalURL string) (s
 func (r *repoURL) RedirectURL(ctx context.Context, userID, shortURL string) (string, error) {
 	log := logger.LoggerFromContext(ctx)
 	url, ok := r.URLMap[userID][shortURL]
+	log.Infof("RedirectURL ------", userID, shortURL, url)
 	if !ok {
 		log.Error("error URLMap[shortURL]")
 		return "", errors.New("url not found")
