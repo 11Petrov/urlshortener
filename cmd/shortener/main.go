@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
+	"github.com/11Petrov/urlshortener/internal/auth"
 	"github.com/11Petrov/urlshortener/internal/gzip"
 	"github.com/11Petrov/urlshortener/internal/handlers"
 	"github.com/11Petrov/urlshortener/internal/logger"
@@ -33,12 +34,14 @@ func Run(cfg *config.Config, ctx context.Context) error {
 	h := handlers.NewHandlerURL(storeURL, cfg.BaseURL)
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging)
+	r.Use(auth.AuthMiddleware)
 
 	r.Post("/", gzip.GzipMiddleware(h.ShortenURL))
 	r.Get("/{id}", gzip.GzipMiddleware(h.RedirectURL))
 	r.Post("/api/shorten", gzip.GzipMiddleware(h.JSONShortenURL))
 	r.Get("/ping", h.Ping)
 	r.Post("/api/shorten/batch", gzip.GzipMiddleware(h.BatchShortenURL))
+	r.Get("/api/user/urls", gzip.GzipMiddleware(h.GetUserURLs))
 	log.Infow(
 		"Running server",
 		"address", cfg.ServerAddress,

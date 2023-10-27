@@ -8,28 +8,22 @@ import (
 
 	"github.com/11Petrov/urlshortener/cmd/config"
 	"github.com/11Petrov/urlshortener/internal/logger"
+	"github.com/11Petrov/urlshortener/internal/models"
 	"github.com/11Petrov/urlshortener/internal/utils"
-	"github.com/google/uuid"
 )
 
 // URLStore определяет интерфейс для хранилища URL
 type URLStore interface {
-	ShortenURL(ctx context.Context, originalURL string) (string, error)
-	RedirectURL(ctx context.Context, shortURL string) (string, error)
+	ShortenURL(ctx context.Context, userID, originalURL string) (string, error)
+	RedirectURL(ctx context.Context, userID, shortURL string) (string, error)
 	Ping(ctx context.Context) error
-	BatchShortenURL(ctx context.Context, originalURL string) (string, error)
-}
-
-// Event представляет информацию о сокращенном URL для сохранения в файле
-type Event struct {
-	ID          uuid.UUID `json:"uuid"`
-	ShortURL    string    `json:"short_url"`
-	OriginalURL string    `json:"original_url"`
+	BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error)
+	GetUserURLs(ctx context.Context, userID string) ([]models.Event, error)
 }
 
 // RepoURL - структура, реализующая интерфейс URLStore
 type repoURL struct {
-	URLMap  map[string]string
+	URLMap  map[string]map[string]string
 	file    *os.File
 	encoder *json.Encoder
 }
@@ -61,14 +55,17 @@ func NewRepoURL(filename string, ctx context.Context) (URLStore, error) {
 	}
 
 	decoder := json.NewDecoder(file)
-	URLMap := make(map[string]string)
+	URLMap := make(map[string]map[string]string)
 	for {
-		var event Event
+		var event models.Event
 		if err := decoder.Decode(&event); err != nil {
 			log.Errorf("error Decode to event %s", err)
 			break
 		}
-		URLMap[event.ShortURL] = event.OriginalURL
+		if _, ok := URLMap[event.UserID]; !ok {
+			URLMap[event.UserID] = make(map[string]string)
+		}
+		URLMap[event.UserID][event.ShortURL] = event.OriginalURL
 	}
 
 	return &repoURL{
@@ -79,13 +76,16 @@ func NewRepoURL(filename string, ctx context.Context) (URLStore, error) {
 }
 
 // ShortenURL сокращает оригинальный URL и сохраняет его в хранилище, возвращая сокращенный URL
-func (r *repoURL) ShortenURL(ctx context.Context, originalURL string) (string, error) {
+func (r *repoURL) ShortenURL(ctx context.Context, userID, originalURL string) (string, error) {
 	log := logger.LoggerFromContext(ctx)
 	shortURL := utils.GenerateShortURL(originalURL)
-	r.URLMap[shortURL] = originalURL
+	if _, ok := r.URLMap[userID]; !ok {
+		r.URLMap[userID] = make(map[string]string)
+	}
+	r.URLMap[userID][shortURL] = originalURL
 
-	event := Event{
-		ID:          uuid.New(),
+	event := models.Event{
+		UserID:      userID,
 		ShortURL:    shortURL,
 		OriginalURL: originalURL,
 	}
@@ -105,9 +105,9 @@ func (r *repoURL) ShortenURL(ctx context.Context, originalURL string) (string, e
 }
 
 // RedirectURL возвращает оригинальный URL
-func (r *repoURL) RedirectURL(ctx context.Context, shortURL string) (string, error) {
+func (r *repoURL) RedirectURL(ctx context.Context, userID, shortURL string) (string, error) {
 	log := logger.LoggerFromContext(ctx)
-	url, ok := r.URLMap[shortURL]
+	url, ok := r.URLMap[userID][shortURL]
 	if !ok {
 		log.Error("error URLMap[shortURL]")
 		return "", errors.New("url not found")
@@ -115,7 +115,7 @@ func (r *repoURL) RedirectURL(ctx context.Context, shortURL string) (string, err
 	return url, nil
 }
 
-func (r *repoURL) BatchShortenURL(ctx context.Context, originalURL string) (string, error) {
+func (r *repoURL) BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error) {
 	log := logger.LoggerFromContext(ctx)
 	log.Info("BatchShortenURL function was called")
 	return "", nil
@@ -125,4 +125,26 @@ func (r *repoURL) Ping(ctx context.Context) error {
 	log := logger.LoggerFromContext(ctx)
 	log.Info("Ping function was called")
 	return nil
+}
+
+func (r *repoURL) GetUserURLs(ctx context.Context, userID string) ([]models.Event, error) {
+	log := logger.LoggerFromContext(ctx)
+
+	urls, ok := r.URLMap[userID]
+	if !ok {
+		log.Info("No URLs found for the user")
+		return []models.Event{}, nil
+	}
+
+	events := make([]models.Event, 0, len(urls))
+
+	for shortURL, originalURL := range urls {
+		events = append(events, models.Event{
+			UserID:      userID,
+			ShortURL:    shortURL,
+			OriginalURL: originalURL,
+		})
+	}
+
+	return events, nil
 }

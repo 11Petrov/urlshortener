@@ -3,14 +3,15 @@ package handlers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/11Petrov/urlshortener/cmd/config"
+	"github.com/11Petrov/urlshortener/internal/auth"
 	"github.com/11Petrov/urlshortener/internal/logger"
+	"github.com/11Petrov/urlshortener/internal/models"
 	"github.com/11Petrov/urlshortener/internal/utils"
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
@@ -18,44 +19,77 @@ import (
 )
 
 type TestURLStore interface {
-	ShortenURL(ctx context.Context, originalURL string) (string, error)
-	RedirectURL(ctx context.Context, shortURL string) (string, error)
+	ShortenURL(ctx context.Context, userID, originalURL string) (string, error)
+	RedirectURL(ctx context.Context, userID, shortURL string) (string, error)
 	Ping(ctx context.Context) error
-	BatchShortenURL(ctx context.Context, originalURL string) (string, error)
+	BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error)
+	GetUserURLs(ctx context.Context, userID string) ([]models.Event, error)
 }
 
 type testStorage struct {
-	URLMap map[string]string
+	URLMap map[string]map[string]string
 }
 
 func newTestStorage() TestURLStore {
 	return &testStorage{
-		URLMap: make(map[string]string),
+		URLMap: make(map[string]map[string]string),
 	}
 }
 
-func (t *testStorage) ShortenURL(ctx context.Context, originalURL string) (string, error) {
+func (t *testStorage) ShortenURL(ctx context.Context, userID, originalURL string) (string, error) {
 	shortURL := utils.GenerateShortURL(originalURL)
-	t.URLMap[shortURL] = originalURL
+	if _, ok := t.URLMap[userID]; !ok {
+		t.URLMap[userID] = make(map[string]string)
+	}
+	t.URLMap[userID][shortURL] = originalURL
 	return shortURL, nil
 }
 
-func (t *testStorage) RedirectURL(ctx context.Context, shortURL string) (string, error) {
-	url, ok := t.URLMap[shortURL]
-	if !ok {
-		return "", errors.New("url not found")
+func (t *testStorage) RedirectURL(ctx context.Context, userID, shortURL string) (string, error) {
+	if userUrls, ok := t.URLMap[userID]; ok {
+		url, ok := userUrls[shortURL]
+		if !ok {
+			return "", errors.New("url not found for this user")
+		}
+		return url, nil
 	}
-	return url, nil
+	return "", errors.New("user not found")
+}
+
+func (t *testStorage) GetUserURLs(ctx context.Context, userID string) ([]models.Event, error) {
+	log := logger.LoggerFromContext(ctx)
+
+	urls, ok := t.URLMap[userID]
+	if !ok {
+		log.Info("No URLs found for the user")
+		return []models.Event{}, nil
+	}
+
+	events := make([]models.Event, 0, len(urls))
+
+	for shortURL, originalURL := range urls {
+		events = append(events, models.Event{
+			UserID:      userID,
+			ShortURL:    shortURL,
+			OriginalURL: originalURL,
+		})
+	}
+
+	return events, nil
 }
 
 // BatchShortenURL implements URLStore.
-func (t *testStorage) BatchShortenURL(ctx context.Context, originalURL string) (string, error) {
-	panic("unimplemented")
+func (t *testStorage) BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error) {
+	log := logger.LoggerFromContext(ctx)
+	log.Info("BatchShortenURL function was called")
+	return "", nil
 }
 
 // Ping implements URLStore.
 func (t *testStorage) Ping(ctx context.Context) error {
-	panic("unimplemented")
+	log := logger.LoggerFromContext(ctx)
+	log.Info("Ping function was called")
+	return nil
 }
 
 func TestShortenURL(t *testing.T) {
@@ -92,7 +126,7 @@ func TestShortenURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			body := strings.NewReader(tt.requestBody)
 			request := httptest.NewRequest("POST", "/shorten", body)
-			request = request.WithContext(ctxLogger)
+			request = request.WithContext(context.WithValue(ctxLogger, auth.UserIDKey, "test_user_id"))
 
 			w := httptest.NewRecorder()
 			testHandler1.ShortenURL(w, request)
@@ -118,13 +152,14 @@ func TestRedirectURL(t *testing.T) {
 
 	r := chi.NewRouter()
 	r.HandleFunc("/{id}", func(rw http.ResponseWriter, r *http.Request) {
-		req := r.WithContext(ctxLogger)
+		req := r.WithContext(context.WithValue(ctxLogger, auth.UserIDKey, "test_user_id"))
 		testHandler2.RedirectURL(rw, req)
 	})
 
 	testURL := "https://practicum.yandex.ru/"
 	shortURL := utils.GenerateShortURL(testURL)
-	testStorage2.ShortenURL(context.TODO(), testURL)
+	userID := "test_user_id"
+	testStorage2.ShortenURL(context.TODO(), userID, testURL)
 
 	tests := []struct {
 		name             string
@@ -192,9 +227,8 @@ func TestJSONShortenURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := strings.NewReader(tt.requestBody)
-			fmt.Println(body)
 			request := httptest.NewRequest("POST", "/api/shorten", body)
-			request = request.WithContext(ctxLogger)
+			request = request.WithContext(context.WithValue(ctxLogger, auth.UserIDKey, "test_user_id"))
 
 			w := httptest.NewRecorder()
 			testHandler3.JSONShortenURL(w, request)
