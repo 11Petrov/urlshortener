@@ -2,10 +2,10 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/11Petrov/urlshortener/internal/logger"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 )
@@ -17,28 +17,32 @@ type Claims struct {
 
 type KeyType string
 
-const UserIDKey KeyType = "userID"
-const TokenEXP = time.Hour * 3
-const SecretKEY = "supersecretkey"
-const CookieName = "auth"
+const (
+	UserIDKey  KeyType = "userID"
+	TokenEXP           = time.Hour * 3
+	SecretKEY          = "supersecretkey"
+	CookieName         = "auth"
+)
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	authFn := func(rw http.ResponseWriter, r *http.Request) {
 		var userID string
 		var tokenString string
 
+		log := logger.LoggerFromContext(r.Context())
+
 		cookie, err := r.Cookie(CookieName)
 		if err != nil {
 			userID = uuid.New().String()
-			tokenString, err = BuildJWTString(userID)
+			tokenString, err = BuildJWTString(r.Context(), userID)
 			if err != nil {
-				fmt.Println("AuthMiddleware BuildJWTString err = ", err)
+				log.Errorf("AuthMiddleware BuildJWTString err = ", err)
 			}
-		} else if userID, err = GetUserID(cookie.Value); err != nil {
+		} else if userID, err = GetUserID(r.Context(), cookie.Value); err != nil {
 			userID := uuid.New().String()
-			tokenString, err = BuildJWTString(userID)
+			tokenString, err = BuildJWTString(r.Context(), userID)
 			if err != nil {
-				fmt.Println("AuthMiddleware BuildJWTString err = ", err)
+				log.Errorf("AuthMiddleware BuildJWTString err = ", err)
 			}
 		}
 
@@ -57,7 +61,8 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(authFn)
 }
 
-func BuildJWTString(userID string) (string, error) {
+func BuildJWTString(ctx context.Context, userID string) (string, error) {
+	log := logger.LoggerFromContext(ctx)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenEXP)),
@@ -67,25 +72,26 @@ func BuildJWTString(userID string) (string, error) {
 
 	tokenString, err := token.SignedString([]byte(SecretKEY))
 	if err != nil {
-		fmt.Println("error tokenString in BuildJWTString()... ", err)
+		log.Errorf("error tokenString in BuildJWTString()... ", err)
 		return "", err
 	}
 	return tokenString, nil
 }
 
-func GetUserID(tokenString string) (string, error) {
+func GetUserID(ctx context.Context, tokenString string) (string, error) {
+	log := logger.LoggerFromContext(ctx)
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims,
 		func(t *jwt.Token) (interface{}, error) {
 			return []byte(SecretKEY), nil
 		})
 	if err != nil {
-		fmt.Println("error in GetUserID, ", err)
+		log.Errorf("error in GetUserID, ", err)
 		return "", err
 	}
 
 	if !token.Valid {
-		fmt.Println("no valid token ...", err)
+		log.Errorf("no valid token ...", err)
 		return "", err
 	}
 
