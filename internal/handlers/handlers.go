@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/11Petrov/urlshortener/internal/auth"
 	"github.com/11Petrov/urlshortener/internal/logger"
@@ -85,6 +86,8 @@ func (h *HandlerURL) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 func (h *HandlerURL) RedirectURL(rw http.ResponseWriter, r *http.Request) {
 	log := logger.LoggerFromContext(r.Context())
 	log.Info("Processing RediretURL handler")
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*120)
+	defer cancel()
 	path := strings.Split(r.URL.Path, "/")
 	shortURL := path[1]
 	if len(shortURL) == 0 {
@@ -97,7 +100,7 @@ func (h *HandlerURL) RedirectURL(rw http.ResponseWriter, r *http.Request) {
 	if !ok {
 		log.Error("error userID RedirectURL")
 	}
-	url, err := h.storeURL.RedirectURL(r.Context(), userID, shortURL)
+	url, err := h.storeURL.RedirectURL(ctx, userID, shortURL)
 	if err != nil {
 		log.Errorf("URL not found (RedirectURL) %s", err)
 		rw.WriteHeader(http.StatusGone)
@@ -238,6 +241,8 @@ func (h *HandlerURL) GetUserURLs(rw http.ResponseWriter, r *http.Request) {
 func (h *HandlerURL) DeleteUserURLs(rw http.ResponseWriter, r *http.Request) {
 	log := logger.LoggerFromContext(r.Context())
 	log.Info("Processing DeleteUserURLs handelr")
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*120)
+	defer cancel()
 
 	userID, ok := r.Context().Value(auth.UserIDKey).(string)
 	if !ok {
@@ -252,7 +257,6 @@ func (h *HandlerURL) DeleteUserURLs(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
 	err := h.storeURL.DeleteUserURLs(ctx, userID, urls)
 	if err != nil {
 		log.Errorf("DeleteUserURLs error", err)
