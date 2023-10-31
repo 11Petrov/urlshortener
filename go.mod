@@ -11,6 +11,11 @@ require (
 )
 
 require (
+	github.com/jackc/puddle/v2 v2.2.1 // indirect
+	golang.org/x/sync v0.4.0 // indirect
+)
+
+require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa

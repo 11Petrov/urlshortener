@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -21,6 +20,7 @@ type handlerURLStore interface {
 	Ping(ctx context.Context) error
 	BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error)
 	GetUserURLs(ctx context.Context, userID, baseURL string) ([]models.Event, error)
+	DeleteUserURLs(ctx context.Context, userID string, shortURL []string) error
 }
 
 // URLHandler обрабатывает HTTP-запросы
@@ -57,7 +57,7 @@ func (h *HandlerURL) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 
 	userID, ok := r.Context().Value(auth.UserIDKey).(string)
 	if !ok {
-		fmt.Println("error userID ShortenURL")
+		log.Error("error userID ShortenURL")
 	}
 	originalURL := string(body)
 	shortURL, err := h.storeURL.ShortenURL(r.Context(), userID, originalURL)
@@ -95,13 +95,12 @@ func (h *HandlerURL) RedirectURL(rw http.ResponseWriter, r *http.Request) {
 
 	userID, ok := r.Context().Value(auth.UserIDKey).(string)
 	if !ok {
-		fmt.Println("error userID RedirectURL")
+		log.Error("error userID RedirectURL")
 	}
 	url, err := h.storeURL.RedirectURL(r.Context(), userID, shortURL)
 	if err != nil {
-		rw.WriteHeader(http.StatusBadRequest)
-		log.Infof(userID)
-		log.Errorf("Url not found (RedirectURL) %s", err)
+		log.Errorf("URL not found (RedirectURL) %s", err)
+		rw.WriteHeader(http.StatusGone)
 		return
 	}
 	rw.Header().Set("Location", url)
@@ -120,7 +119,7 @@ func (h *HandlerURL) JSONShortenURL(rw http.ResponseWriter, r *http.Request) {
 	}
 	userID, ok := r.Context().Value(auth.UserIDKey).(string)
 	if !ok {
-		fmt.Println("error userID JsonShortenURL")
+		log.Error("error userID JsonShortenURL")
 		return
 	}
 	shortURL, err := h.storeURL.ShortenURL(r.Context(), userID, req.URL)
@@ -179,7 +178,7 @@ func (h *HandlerURL) BatchShortenURL(rw http.ResponseWriter, r *http.Request) {
 	for _, val := range arrRequest {
 		userID, ok := r.Context().Value(auth.UserIDKey).(string)
 		if !ok {
-			fmt.Println("error userID BatchShortenURL")
+			log.Error("error userID BatchShortenURL")
 		}
 		shortURL, err := h.storeURL.BatchShortenURL(r.Context(), userID, val.OriginalURL)
 		if err != nil {
@@ -234,4 +233,31 @@ func (h *HandlerURL) GetUserURLs(rw http.ResponseWriter, r *http.Request) {
 		log.Errorf("Invalid encode json (GetUserUrls) %s", err)
 		return
 	}
+}
+
+func (h *HandlerURL) DeleteUserURLs(rw http.ResponseWriter, r *http.Request) {
+	log := logger.LoggerFromContext(r.Context())
+	log.Info("Processing DeleteUserURLs handelr")
+
+	userID, ok := r.Context().Value(auth.UserIDKey).(string)
+	if !ok {
+		log.Error("Error getting user ID in DeleteUserURLs")
+		return
+	}
+
+	var urls []string
+	if err := json.NewDecoder(r.Body).Decode(&urls); err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		log.Errorf("Invalid decode json (BatchShortenURL) %s", err)
+		return
+	}
+
+	ctx := r.Context()
+	err := h.storeURL.DeleteUserURLs(ctx, userID, urls)
+	if err != nil {
+		log.Errorf("DeleteUserURLs error", err)
+	}
+
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(http.StatusAccepted)
 }

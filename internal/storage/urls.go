@@ -19,6 +19,7 @@ type URLStore interface {
 	Ping(ctx context.Context) error
 	BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error)
 	GetUserURLs(ctx context.Context, userID, baseURL string) ([]models.Event, error)
+	DeleteUserURLs(ctx context.Context, userID string, urls []string) error
 }
 
 // RepoURL - структура, реализующая интерфейс URLStore
@@ -111,13 +112,13 @@ func (r *repoURL) RedirectURL(ctx context.Context, userID, shortURL string) (str
 
 func (r *repoURL) BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error) {
 	log := logger.LoggerFromContext(ctx)
-	log.Info("BatchShortenURL function was called")
+	log.Info("BatchShortenURL function was called(urls)")
 	return "", nil
 }
 
 func (r *repoURL) Ping(ctx context.Context) error {
 	log := logger.LoggerFromContext(ctx)
-	log.Info("Ping function was called")
+	log.Info("Ping function was called(urls)")
 	return nil
 }
 
@@ -125,4 +126,10 @@ func (r *repoURL) GetUserURLs(ctx context.Context, userID, baseURL string) ([]mo
 	log := logger.LoggerFromContext(ctx)
 	log.Info("GetUserURLs was called(urls)")
 	return []models.Event{}, nil
+}
+
+func (r *repoURL) DeleteUserURLs(ctx context.Context, userID string, urls []string) error {
+	log := logger.LoggerFromContext(ctx)
+	log.Info("DeleteUserURLs was called(urls)")
+	return nil
 }

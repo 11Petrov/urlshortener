@@ -24,6 +24,7 @@ type TestURLStore interface {
 	Ping(ctx context.Context) error
 	BatchShortenURL(ctx context.Context, userID, originalURL string) (string, error)
 	GetUserURLs(ctx context.Context, userID, baseURL string) ([]models.Event, error)
+	DeleteUserURLs(ctx context.Context, userID string, shortURL []string) error
 }
 
 type testStorage struct {
@@ -89,6 +90,12 @@ func (t *testStorage) BatchShortenURL(ctx context.Context, userID, originalURL s
 func (t *testStorage) Ping(ctx context.Context) error {
 	log := logger.LoggerFromContext(ctx)
 	log.Info("Ping function was called")
+	return nil
+}
+
+func (t *testStorage) DeleteUserURLs(ctx context.Context, userID string, shortURL []string) error {
+	log := logger.LoggerFromContext(ctx)
+	log.Info("DeleteUserURLs was called")
 	return nil
 }
 
@@ -179,7 +186,7 @@ func TestRedirectURL(t *testing.T) {
 			name:             "ShortURL not in UrlMap",
 			router:           r,
 			URL:              "invalidURL",
-			expectedStatus:   http.StatusBadRequest,
+			expectedStatus:   http.StatusGone,
 			expectedLocation: "",
 		},
 	}

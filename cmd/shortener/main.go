@@ -42,6 +42,7 @@ func Run(cfg *config.Config, ctx context.Context) error {
 	r.Get("/ping", h.Ping)
 	r.Post("/api/shorten/batch", gzip.GzipMiddleware(h.BatchShortenURL))
 	r.Get("/api/user/urls", gzip.GzipMiddleware(h.GetUserURLs))
+	r.Delete("/api/user/urls", gzip.GzipMiddleware(h.DeleteUserURLs))
 	log.Infow(
 		"Running server",
 		"address", cfg.ServerAddress,

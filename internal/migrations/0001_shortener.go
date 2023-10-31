@@ -19,7 +19,8 @@ func upShortener(ctx context.Context, tx *sql.Tx) error {
 	CREATE TABLE IF NOT EXISTS shortener (
 		id SERIAL PRIMARY KEY,
 		short_url TEXT NOT NULL,
-		original_url TEXT NOT NULL
+		original_url TEXT NOT NULL,
+		is_deleted BOOLEAN DEFAULT FALSE
 	);
 	
 	ALTER TABLE shortener ADD COLUMN IF NOT EXISTS user_id VARCHAR; 
