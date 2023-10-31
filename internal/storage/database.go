@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	"github.com/11Petrov/urlshortener/internal/logger"
 	"github.com/11Petrov/urlshortener/internal/models"
@@ -57,14 +56,12 @@ func (s *Database) ShortenURL(ctx context.Context, userID, originalURL string) (
 	log := logger.LoggerFromContext(ctx)
 	shortURL := utils.GenerateShortURL(originalURL)
 
-	c, cancel := context.WithTimeout(ctx, time.Second*2)
-	defer cancel()
-	_, err := s.db.Exec(c, `INSERT INTO shortener(short_url, original_url, user_id) VALUES($1, $2, $3)`, shortURL, originalURL, userID)
+	_, err := s.db.Exec(ctx, `INSERT INTO shortener(short_url, original_url, user_id) VALUES($1, $2, $3)`, shortURL, originalURL, userID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 			var res string
-			s.db.QueryRow(c, `SELECT short_url FROM shortener WHERE original_url = $1`, originalURL).Scan(&res)
+			s.db.QueryRow(ctx, `SELECT short_url FROM shortener WHERE original_url = $1`, originalURL).Scan(&res)
 			return res, storageErrors.ErrUnique
 		}
 		log.Errorf("error ExecContext %s", err)
@@ -77,10 +74,8 @@ func (s *Database) ShortenURL(ctx context.Context, userID, originalURL string) (
 func (s *Database) RedirectURL(ctx context.Context, userID, shortURL string) (string, error) {
 	var originalURL string
 	log := logger.LoggerFromContext(ctx)
-	c, cancel := context.WithTimeout(ctx, time.Second*2)
-	defer cancel()
 
-	row := s.db.QueryRow(c, `SELECT original_url FROM shortener WHERE short_url = $1 AND is_deleted = false`, shortURL)
+	row := s.db.QueryRow(ctx, `SELECT original_url FROM shortener WHERE short_url = $1 AND is_deleted = false`, shortURL)
 	if err := row.Scan(&originalURL); err != nil {
 		log.Errorf("row.Scan error", err)
 		return "", err
@@ -152,10 +147,11 @@ func (s *Database) DeleteUserURLs(ctx context.Context, userID string, urls []str
 		batch.Queue("UPDATE shortener SET is_deleted = true WHERE short_url = $1 AND user_id = $2;", url, userID)
 	}
 
-	br := s.db.SendBatch(ctx, &batch)
-	_, err := br.Exec()
+	br := s.db.SendBatch(context.Background(), &batch)
+	err := br.Close()
 	if err != nil {
 		log.Errorf("SendBatch error", err)
+		return err
 	}
 
 	log.Info("End DeleteUserURLs in database.go")

@@ -86,7 +86,7 @@ func (h *HandlerURL) ShortenURL(rw http.ResponseWriter, r *http.Request) {
 func (h *HandlerURL) RedirectURL(rw http.ResponseWriter, r *http.Request) {
 	log := logger.LoggerFromContext(r.Context())
 	log.Info("Processing RediretURL handler")
-	ctx, cancel := context.WithTimeout(r.Context(), time.Second*120)
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*60)
 	defer cancel()
 	path := strings.Split(r.URL.Path, "/")
 	shortURL := path[1]
@@ -241,7 +241,7 @@ func (h *HandlerURL) GetUserURLs(rw http.ResponseWriter, r *http.Request) {
 func (h *HandlerURL) DeleteUserURLs(rw http.ResponseWriter, r *http.Request) {
 	log := logger.LoggerFromContext(r.Context())
 	log.Info("Processing DeleteUserURLs handelr")
-	ctx, cancel := context.WithTimeout(r.Context(), time.Second*120)
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*60)
 	defer cancel()
 
 	userID, ok := r.Context().Value(auth.UserIDKey).(string)
